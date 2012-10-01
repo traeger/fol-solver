@@ -15,4 +15,4 @@ readExample filename = do
 readExampleUnsafe :: String -> [TPTP_Input]
 readExampleUnsafe = unsafePerformIO . readExample
 
-axiom = readExampleUnsafe "Data/Examples/Axiom.tptp"
+axiom = readExampleUnsafe "Data/Examples/axiom.tptp"
