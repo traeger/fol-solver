@@ -44,7 +44,7 @@ negNormalNeg f =
         Quant q quants formula      -> wrapF $ Quant (negQ q) quants (negNormalNeg formula)
 
         (:~:) f                     -> negNormal f
-        s                           -> (.~.) (wrapF $ s)
+        _                           -> (.~.) f
 
 data ABFormula = Alpha Formula Formula | Beta Formula Formula | NoType Formula
         deriving (Eq,Ord,Show,Read)
@@ -73,5 +73,7 @@ abFormula f =
             BinOp left (:|:) right      -> Alpha ((.~.) left) ((.~.) right)
             BinOp left (:~&:) right     -> Alpha left right
             BinOp left (:~|:) right     -> Beta left right
-                
-        s                           -> NoType $ wrapF $ s
+
+            (:~:) form                  -> NoType $ (.~.) $ (.~.) $ form
+            _                           -> NoType $ (.~.) f
+        _                           -> NoType $  f
