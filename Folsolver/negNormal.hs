@@ -1,5 +1,6 @@
 import Codec.TPTP
 import Data.Functor.Identity
+import Folsolver.TPTP
 
 transformOnInput :: (Formula -> Formula) -> TPTP_Input -> TPTP_Input
 transformOnInput fun (AFormula name role form anno) = AFormula name role (fun form) anno
@@ -10,7 +11,7 @@ transformOnInput fun (AFormula name role form anno) = AFormula name role (fun fo
  -}
 
 mkNeg :: Formula -> Formula
-mkNeg f = F $ Identity $ (:~:) f
+mkNeg = (.~.)
 
 
 -- | Negates of the quantifiers
@@ -21,7 +22,7 @@ negQ Exists    = All
 -- | Negation Normal form, assumption, the formula is Positiv
 negNormal :: Formula -> Formula
 negNormal f =
-    F $ Identity $ case unwrapF f of
+    wrapF $ case unwrapF f of
         BinOp left op right     -> BinOp (negNormal left) op (negNormal right)
         Quant q quants formula  -> Quant q quants (negNormal formula)
         (:~:) f                 -> unwrapF $ negNormalNeg f
@@ -30,20 +31,20 @@ negNormal f =
 -- | Negation Normal form, we carry a negation with us
 negNormalNeg :: Formula -> Formula
 negNormalNeg f =
-    F $ Identity $ case unwrapF f of
-        BinOp left (:<=>:) right    -> BinOp (negNormal left) (:<~>:) (negNormal right)
-        BinOp left (:<~>:) right    -> BinOp (negNormal left) (:<=>:) (negNormal right)
-        BinOp left (:=>:) right     -> BinOp (negNormal left) (:&:) (negNormalNeg right)
-        BinOp left (:<=:) right     -> BinOp (negNormalNeg left) (:&:) (negNormal right)
-        BinOp left (:&:) right      -> BinOp (negNormalNeg left) (:|:) (negNormalNeg right)
-        BinOp left (:|:) right      -> BinOp (negNormalNeg left) (:&:) (negNormalNeg right)
-        BinOp left (:~&:) right     -> BinOp (negNormal left) (:&:) (negNormal right)
-        BinOp left (:~|:) right     -> BinOp (negNormal left) (:|:) (negNormal right)
-            
-        Quant q quants formula      -> Quant (negQ q) quants (negNormalNeg formula)
-           
-        (:~:) f                     -> unwrapF $ negNormal f
-        s                           -> (:~:) (F $ Identity $ s)
+    case unwrapF f of
+        BinOp left (:<=>:) right    -> (negNormal left) .<~>. (negNormal right)
+        BinOp left (:<~>:) right    -> (negNormal left) .<=>. (negNormal right)
+        BinOp left (:=>:) right     -> (negNormal left) .&. (negNormalNeg right)
+        BinOp left (:<=:) right     -> (negNormalNeg left) .&. (negNormal right)
+        BinOp left (:&:) right      -> (negNormalNeg left) .|. (negNormalNeg right)
+        BinOp left (:|:) right      -> (negNormalNeg left) .&. (negNormalNeg right)
+        BinOp left (:~&:) right     -> (negNormal left) .&. (negNormal right)
+        BinOp left (:~|:) right     -> (negNormal left) .|. (negNormal right)
+
+        Quant q quants formula      -> wrapF $ Quant (negQ q) quants (negNormalNeg formula)
+
+        (:~:) f                     -> negNormal f
+        s                           -> (.~.) (wrapF $ s)
 
 data ABFormula = Alpha Formula Formula | Beta Formula Formula | NoType Formula
         deriving (Eq,Ord,Show,Read)
@@ -54,23 +55,23 @@ data ABFormula = Alpha Formula Formula | Beta Formula Formula | NoType Formula
 abFormula :: Formula -> ABFormula
 abFormula f =
     case unwrapF f of
-        BinOp left (:<=>:) right    -> Beta (F $ Identity $ BinOp left (:&:) right) (F $ Identity $ (:~:) $ F $ Identity $ BinOp left (:|:) right)
-        BinOp left (:<~>:) right    -> Alpha (F $ Identity $ BinOp left (:|:) right) (F $ Identity $ (:~:) $ F $ Identity $ BinOp left (:&:) right)
-        BinOp left (:=>:) right     -> Beta (F $ Identity $ (:~:) left) right
-        BinOp left (:<=:) right     -> Beta left (F $ Identity $ (:~:) right)
+        BinOp left (:<=>:) right    -> Beta (left .&. right) ((.~.) $ left .|. right)
+        BinOp left (:<~>:) right    -> Alpha (left .|. right) ((.~.) $ left .&. right)
+        BinOp left (:=>:) right     -> Beta ((.~.) left) right
+        BinOp left (:<=:) right     -> Beta left ((.~.) right)
         BinOp left (:&:) right      -> Alpha left right
         BinOp left (:|:) right      -> Beta left right
-        BinOp left (:~&:) right     -> Beta (F $ Identity $ (:~:) left) (F $ Identity $ (:~:) right)
-        BinOp left (:~|:) right     -> Alpha (F $ Identity $ (:~:) left) (F $ Identity $ (:~:) right)
+        BinOp left (:~&:) right     -> Beta ((.~.) left) ((.~.) right)
+        BinOp left (:~|:) right     -> Alpha ((.~.) left) ((.~.) right)
 
         (:~:) f'    ->  case unwrapF f' of
-            BinOp left (:<=>:) right    -> Alpha (F $ Identity $ BinOp left (:|:) right) (F $ Identity $ (:~:) $ F $ Identity $ BinOp left (:&:) right)
-            BinOp left (:<~>:) right    -> Beta (F $ Identity $ BinOp left (:&:) right) (F $ Identity $ (:~:) $ F $ Identity $ BinOp left (:|:) right)
-            BinOp left (:=>:) right     -> Alpha left (F $ Identity $ (:~:) right)
-            BinOp left (:<=:) right     -> Alpha (F $ Identity $ (:~:) left) right
-            BinOp left (:&:) right      -> Beta (F $ Identity $ (:~:) left) (F $ Identity $ (:~:) right)
-            BinOp left (:|:) right      -> Alpha (F $ Identity $ (:~:) left) (F $ Identity $ (:~:) right)
+            BinOp left (:<=>:) right    -> Alpha (left .|. right) ((.~.) $ left .&. right)
+            BinOp left (:<~>:) right    -> Beta (left .&. right) ((.~.) $ left .|. right)
+            BinOp left (:=>:) right     -> Alpha left ((.~.) right)
+            BinOp left (:<=:) right     -> Alpha ((.~.) left) right
+            BinOp left (:&:) right      -> Beta ((.~.) left) ((.~.) right)
+            BinOp left (:|:) right      -> Alpha ((.~.) left) ((.~.) right)
             BinOp left (:~&:) right     -> Alpha left right
             BinOp left (:~|:) right     -> Beta left right
                 
-        s                           -> NoType $ F $ Identity $ s
+        s                           -> NoType $ wrapF $ s
