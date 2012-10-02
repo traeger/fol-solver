@@ -1,6 +1,7 @@
 module Folsolver.TPTP
  ( wrapF
  , pretty
+ , transformOnInput
  ) where
 
 import Codec.TPTP
@@ -14,3 +15,6 @@ wrapF e = F $ Identity e
 -- pretty print of a formula
 pretty :: Formula -> String
 pretty f = (toTPTP f) ""
+
+transformOnInput :: (Formula -> Formula) -> TPTP_Input -> TPTP_Input
+transformOnInput fun (AFormula name role form anno) = AFormula name role (fun form) anno

@@ -1,3 +1,5 @@
+module Folsolver.Normalform.NoEquivNF where
+
 import Codec.TPTP
 import Data.Functor.Identity
 
