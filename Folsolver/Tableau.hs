@@ -8,6 +8,7 @@ import Folsolver.TPTP
 
 import Data.Set (Set) 
 import qualified Data.Set as S
+import Data.Maybe (fromJust)
 
 simplePick :: [Formula] -> (Formula, [Formula])
 simplePick (f:fs) = (f,fs)
@@ -45,6 +46,15 @@ tableau0 pick formulas t =
  -}
 tableauProof :: ([Formula] -> (Formula, [Formula])) -> [TPTP_Input] -> Bool
 tableauProof pick input = checkTableau (tableau pick $ transformInput input) S.empty
+
+{- 
+ - | This tableau Proover takes a List of TPTP inputs,
+ - | momentarily only axiom and conjecture,
+ - |
+ - | It returns true iff the input is satisfiable.
+ -}
+tableauProofWithProof :: ([Formula] -> (Formula, [Formula])) -> [TPTP_Input] -> (Bool, Tableau)
+tableauProofWithProof pick input = checkTableauWithProof (tableau pick $ transformInput input) S.empty
  
   
 {-
@@ -75,14 +85,44 @@ checkTableau t forms        =
     in
         cond || (checkTableau (left t) nForms && checkTableau (right t) nForms)
 
+checkTableauWithProof 
+    :: 
+    Tableau             -- Current branch of the tableau
+    -> Set Formula      -- Formulas seen so far
+    -> (Bool, Tableau)            
+checkTableauWithProof BinEmpty forms = (False, leaf $ S.toList forms)
+checkTableauWithProof t forms        = 
+    let
+        (closed, nForms, witness)  = isClosedWithProof (value t) forms
+        (closedLeft, proofLeft)    = checkTableauWithProof (left t) nForms
+        (closedRight, proofRight)  = checkTableauWithProof (right t) nForms
+    in
+        if closed then (,) True $ leaf $ (flip (++) [fromJust witness]) $ takeWhile ((fromJust witness) ==) $ value t
+        else if closedLeft && closedRight then (,) True $ proofLeft <# value t #> proofRight
+        else (False, head [counter | (closed,counter) <- [(closedLeft, proofLeft),(closedRight,proofRight)] , not closed])
 
-isClosed :: [Formula] -> Set Formula -> (Bool,Set Formula)
+isClosed :: [Formula] -> Set Formula -> (Bool, Set Formula)
 isClosed [] forms              = (False, forms)
 isClosed (x:xs) forms
     | isTrue x                  = isClosed xs forms
     | isFalse x                 = (True, forms)
     | S.member (noDoubleNot ((.~.) x)) forms  = (True, forms)
     | otherwise                 = isClosed xs (S.insert x forms)
+    where 
+        noDoubleNot :: Formula -> Formula
+        noDoubleNot x = case unwrapF x of
+            (:~:) x0        -> case unwrapF x0 of
+                (:~:) x1    -> x1
+                _           -> x
+            _               -> x
+
+isClosedWithProof :: [Formula] -> Set Formula -> (Bool, Set Formula, Maybe Formula)
+isClosedWithProof [] forms              = (False, forms, Nothing)
+isClosedWithProof (x:xs) forms
+    | isTrue x                  = isClosedWithProof xs forms
+    | isFalse x                 = (True, forms, Just x)
+    | S.member (noDoubleNot ((.~.) x)) forms  = (True, forms, Just x)
+    | otherwise                 = isClosedWithProof xs (S.insert x forms)
     where 
         noDoubleNot :: Formula -> Formula
         noDoubleNot x = case unwrapF x of

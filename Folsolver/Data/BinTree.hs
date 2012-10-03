@@ -5,7 +5,11 @@ module Folsolver.Data.BinTree
 
 data BinTree v
  = BinNode {left :: BinTree v, value :: v, right :: BinTree v}
- | BinEmpty deriving (Show, Eq)
+ | BinEmpty deriving (Eq)
+
+instance (Show v) => Show (BinTree v) where
+  show BinEmpty = "^"
+  show tree = "(" ++ (show $ left tree) ++ ") <# " ++ (show $ value tree) ++ " #> (" ++ (show $ right tree) ++ ")"
 
 empty :: BinTree v
 empty = BinEmpty
