@@ -29,11 +29,11 @@ tableau0 pick formulas t =
     (f,fs) = pick formulas
     ab = abFormula f
   in case ab of
-    Alpha a1 a2 -> tableau0 pick (fs++[a1,a2]) (leaf $ (value t) ++ [a1, a2])                      -- handle alpha formulas
-    Beta b1 b2  -> (tableau0 pick fs (leaf [b1]) ) <# (value t) #> (tableau0 pick fs (leaf [b2]) ) -- handle beta formulas
-    NoType _    -> case (unwrapF f) of
-      (:~:) f0     -> case (unwrapF f0) of
-        (:~:) f1      -> tableau0 pick (fs++[f1]) (leaf $ (value t) ++ [f1])                       -- handle double negate
+    Alpha a1 a2 -> tableau0 pick (fs++[a1,a2]) (leaf $ value t ++ [a1, a2])                        -- handle alpha formulas
+    Beta b1 b2  -> tableau0 pick fs (leaf [b1])  <# value t #> tableau0 pick fs (leaf [b2])        -- handle beta formulas
+    NoType _    -> case unwrapF f of
+      (:~:) f0     -> case unwrapF f0 of
+        (:~:) f1      -> tableau0 pick (fs++[f1]) (leaf $ value t ++ [f1])                       -- handle double negate
         otherwise     -> tableau0 pick fs t
       otherwise -> tableau0 pick fs t
 
@@ -53,8 +53,8 @@ tableauProof pick input = checkTableau (tableau pick $ transformInput input) S.e
  -} 
 transformInput :: [TPTP_Input] -> [Formula]
 transformInput []                                           = []
-transformInput ((AFormula _ (Role "conjecture") f _):xs)    = ((.~.) f) : transformInput xs
-transformInput ((AFormula _ (Role "axiom") f _):xs)         = f : transformInput xs
+transformInput (AFormula _ (Role "conjecture") f _:xs)      = (f .~.) : transformInput xs
+transformInput (AFormula _ (Role "axiom") f _:xs)           = f : transformInput xs
 transformInput (_:xs)                                       = transformInput xs
 
 {-
@@ -73,11 +73,11 @@ checkTableau t forms        =
     let
         (cond, nForms)      = checkNode (value t) forms
     in
-        cond || ((checkTableau (left t) nForms) && (checkTableau (right t) nForms))
+        cond || (checkTableau (left t) nForms && checkTableau (right t) nForms)
 
 
 checkNode :: [Formula] -> Set Formula -> (Bool,Set Formula)
 checkNode [] forms              = (False, forms)
 checkNode (x:xs) forms
-    | S.member ((.~.) x) forms  = (True, forms)
+    | S.member (x .~.) forms  = (True, forms)
     | otherwise                 = checkNode xs (S.insert x forms)
