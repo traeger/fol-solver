@@ -8,7 +8,12 @@ import Data.Functor.Identity
 import Folsolver.TPTP
 
 data ABFormula = Alpha {alpha1 :: Formula, alpha2 :: Formula} | Beta {beta1 :: Formula, beta2 :: Formula} | NoType Formula
-        deriving (Eq,Ord,Show,Read)
+        deriving (Eq,Ord,Read)
+
+instance Show ABFormula where
+    show (Alpha a b)    = "Alpha { "++pretty a++" } { "++pretty b++" }"
+    show (Beta a b)     = "Beta { "++pretty a++" } { "++pretty b++" }"
+    show (NoType a)     = "Atom { "++pretty a++" }"
 
 isAlpha, isBeta :: ABFormula -> Bool
 isAlpha (Alpha _ _) = True

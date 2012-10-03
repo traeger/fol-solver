@@ -53,7 +53,7 @@ tableauProof pick input = checkTableau (tableau pick $ transformInput input) S.e
  -} 
 transformInput :: [TPTP_Input] -> [Formula]
 transformInput []                                           = []
-transformInput (AFormula _ (Role "conjecture") f _:xs)      = (f .~.) : transformInput xs
+transformInput (AFormula _ (Role "conjecture") f _:xs)      = ((.~.) f) : transformInput xs
 transformInput (AFormula _ (Role "axiom") f _:xs)           = f : transformInput xs
 transformInput (_:xs)                                       = transformInput xs
 
@@ -71,13 +71,22 @@ checkTableau
 checkTableau BinEmpty _     = False
 checkTableau t forms        = 
     let
-        (cond, nForms)      = checkNode (value t) forms
+        (cond, nForms)      = isClosed (value t) forms
     in
         cond || (checkTableau (left t) nForms && checkTableau (right t) nForms)
 
 
-checkNode :: [Formula] -> Set Formula -> (Bool,Set Formula)
-checkNode [] forms              = (False, forms)
-checkNode (x:xs) forms
-    | S.member (x .~.) forms  = (True, forms)
-    | otherwise                 = checkNode xs (S.insert x forms)
+isClosed :: [Formula] -> Set Formula -> (Bool,Set Formula)
+isClosed [] forms              = (False, forms)
+isClosed (x:xs) forms
+    | isTrue x                  = isClosed xs forms
+    | isFalse x                 = (True, forms)
+    | S.member (noDoubleNot ((.~.) x)) forms  = (True, forms)
+    | otherwise                 = isClosed xs (S.insert x forms)
+    where 
+        noDoubleNot :: Formula -> Formula
+        noDoubleNot x = case unwrapF x of
+            (:~:) x0        -> case unwrapF x0 of
+                (:~:) x1    -> x1
+                _           -> x
+            _               -> x
