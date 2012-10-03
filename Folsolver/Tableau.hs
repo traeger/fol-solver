@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -XTypeSynonymInstances -XMultiParamTypeClasses -XFlexibleInstances -XTypeFamilies #-}
+
 module Folsolver.Tableau
  ( tableau, tableauProof, simplePick ) where
 
@@ -53,7 +55,7 @@ tableauProof pick input = checkTableau (tableau pick $ transformInput input) S.e
  - |
  - | It returns true iff the input is satisfiable.
  -}
-tableauProofWithProof :: ([Formula] -> (Formula, [Formula])) -> [TPTP_Input] -> (Bool, Tableau)
+tableauProofWithProof :: ([Formula] -> (Formula, [Formula])) -> [TPTP_Input] -> SATProof Tableau
 tableauProofWithProof pick input = checkTableauWithProof (tableau pick $ transformInput input) S.empty
  
   
@@ -85,22 +87,6 @@ checkTableau t forms        =
     in
         cond || (checkTableau (left t) nForms && checkTableau (right t) nForms)
 
-checkTableauWithProof 
-    :: 
-    Tableau             -- Current branch of the tableau
-    -> Set Formula      -- Formulas seen so far
-    -> (Bool, Tableau)            
-checkTableauWithProof BinEmpty forms = (False, leaf $ S.toList forms)
-checkTableauWithProof t forms        = 
-    let
-        (closed, nForms, witness)  = isClosedWithProof (value t) forms
-        (closedLeft, proofLeft)    = checkTableauWithProof (left t) nForms
-        (closedRight, proofRight)  = checkTableauWithProof (right t) nForms
-    in
-        if closed then (,) True $ leaf $ (flip (++) [fromJust witness]) $ takeWhile ((fromJust witness) ==) $ value t
-        else if closedLeft && closedRight then (,) True $ proofLeft <# value t #> proofRight
-        else (False, head [counter | (closed,counter) <- [(closedLeft, proofLeft),(closedRight,proofRight)] , not closed])
-
 isClosed :: [Formula] -> Set Formula -> (Bool, Set Formula)
 isClosed [] forms              = (False, forms)
 isClosed (x:xs) forms
@@ -115,6 +101,22 @@ isClosed (x:xs) forms
                 (:~:) x1    -> x1
                 _           -> x
             _               -> x
+            
+checkTableauWithProof 
+    :: 
+    Tableau             -- Current branch of the tableau
+    -> Set Formula      -- Formulas seen so far
+    -> SATProofT     
+checkTableauWithProof BinEmpty forms = mkSATProofT $ S.toList $ forms
+checkTableauWithProof t forms
+    | closed                 = mkSATProofT $ (flip (++) [fromJust witness]) $ takeWhile ((fromJust witness) ==) $ value t
+    | isSATProofT proofLeft  = proofLeft
+    | isSATProofT proofRight = proofRight
+    | otherwise              = mkNSATProofT $ fromNSATproofT proofLeft <# value t #> fromNSATproofT proofRight
+    where
+        (closed, nForms, witness)  = isClosedWithProof (value t) forms
+        proofLeft   = checkTableauWithProof (left t) nForms
+        proofRight  = checkTableauWithProof (right t) nForms
 
 isClosedWithProof :: [Formula] -> Set Formula -> (Bool, Set Formula, Maybe Formula)
 isClosedWithProof [] forms              = (False, forms, Nothing)
@@ -130,3 +132,33 @@ isClosedWithProof (x:xs) forms
                 (:~:) x1    -> x1
                 _           -> x
             _               -> x
+            
+class SATProver p where
+  type SATProof p :: *
+  
+  isSAT :: p -> Set Formula -> Bool
+  proofSAT :: p -> Set Formula -> SATProof p
+  isSATProof :: SATProof p -> Bool
+  isNSATProof :: SATProof p -> Bool
+  
+instance SATProver Tableau where
+  type SATProof Tableau = SATProofT
+  
+  isSAT tableau formulas = checkTableau tableau formulas
+  proofSAT tableau formulas = checkTableauWithProof tableau formulas
+  isSATProof = isSATProofT
+  isNSATProof = isNSATProofT
+  
+data SATProofT
+ = SAT {witnessT :: [Formula]} 
+ | NSAT {fromNSATproofT :: Tableau} deriving Show
+mkSATProofT  :: [Formula] -> SATProofT
+mkNSATProofT :: Tableau -> SATProofT
+mkSATProofT = SAT
+mkNSATProofT = NSAT
+
+isSATProofT, isNSATProofT :: SATProofT -> Bool
+isSATProofT (SAT _) = True
+isSATProofT _ = False
+isNSATProofT (NSAT _) = True
+isNSATProofT _ = False
