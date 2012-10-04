@@ -72,7 +72,7 @@ proofSATTableau
     Tableau             -- Current branch of the tableau
     -> Set Formula      -- Formulas seen so far
     -> Proof Tableau 
-proofSATTableau BinEmpty forms = mkSATProof $ S.toList $ forms
+proofSATTableau BinEmpty forms = mkSATProof $ filter isLiteral $ S.toList $ forms
 proofSATTableau t forms
     | closed                = mkNSATProof $ leaf $ (flip (++) [fromJust witness]) $ takeWhile ((fromJust witness) /=) $ value t
     | isSATProof proofLeft  = proofLeft
