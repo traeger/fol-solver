@@ -4,8 +4,8 @@ module Folsolver.Proofer
  ( Proofer(..), Proof, IsProof(..), mkSATProof
  , witnessSAT, witnessSAT0, getNSATProof, getNSATProof0
  , isTaut, proofTaut
- , mkProoferInput, axiomsFromInput, conjecturesFromInput, transformInput
- , check, proof, checkInput, proofInput, (|-)
+ , axiomsFromInput, conjecturesFromInput
+ , check, proof, checkInput, proofInput, (|-), updateF
  ) where
 
 import Codec.TPTP
@@ -19,7 +19,7 @@ class HasPretty (NSATProof p) => Proofer p where
   data NSATProof p :: *
   data Picker p :: *
   
-  mkProofer :: Picker p -> [Formula] -> p
+  mkProofer :: Picker p -> [TPTP_Input] -> p
   
   -- | tests whether a set of formulas is satisfiable
   isSAT :: p -> Set Formula -> Bool
@@ -72,49 +72,39 @@ getNSATProof _ = Nothing
 getNSATProof0 :: Proof p -> NSATProof p
 getNSATProof0 = fromJust . getNSATProof
 
-axiomsFromInput, conjecturesFromInput :: [TPTP_Input] -> [Formula]
+axiomsFromInput, conjecturesFromInput :: [TPTP_Input] -> [TPTP_Input]
 axiomsFromInput [] = []
-axiomsFromInput (AFormula _ (Role "axiom") f _:xs) = f : axiomsFromInput xs
+axiomsFromInput (a@(AFormula _ (Role "axiom") f _):xs) = a : axiomsFromInput xs
 axiomsFromInput (_:xs) = axiomsFromInput xs
 conjecturesFromInput [] = []
-conjecturesFromInput (AFormula _ (Role "conjecture") f _:xs) = f : conjecturesFromInput xs
+conjecturesFromInput (a@(AFormula _ (Role "conjecture") f _):xs) = a : conjecturesFromInput xs
 conjecturesFromInput (_:xs) = conjecturesFromInput xs
 
-{-
- - | Takes the formulas from the input
- - | if it is a conjecture it will be negated
- -} 
-transformInput :: [TPTP_Input] -> [Formula]
-transformInput []                                           = []
-transformInput (AFormula _ (Role "conjecture") f _:xs)      = ((.~.) f) : transformInput xs
-transformInput (AFormula _ (Role "axiom") f _:xs)           = f : transformInput xs
-transformInput (_:xs)                                       = transformInput xs
-
 -- |
 -- |
-transformInputForTautologieCheck :: [TPTP_Input] -> ([Formula], [Formula])
+transformInputForTautologieCheck :: [TPTP_Input] -> ([TPTP_Input], [TPTP_Input])
 transformInputForTautologieCheck input = 
   let
     axioms = axiomsFromInput input
     conjectures = conjecturesFromInput input
   in (axioms, conjectures)
 
-mkProoferInput :: Proofer p => Picker p -> [TPTP_Input] -> p
-mkProoferInput picker input = mkProofer picker $ transformInput input
+-- mkProoferInput :: Proofer p => Picker p -> [TPTP_Input] -> p
+-- mkProoferInput picker input = mkProofer picker $ transformInput input
 
 -- | checks whether the given set of formulas are a tautologie
-isTaut :: Proofer p => Picker p -> [Formula] -> Bool
+isTaut :: Proofer p => Picker p -> [TPTP_Input] -> Bool
 isTaut picker formulas = not $ isSAT (mkProofer picker formulas) Set.empty
 
 -- | proofs whether the given set of formulas are a tautologie
-proofTaut :: Proofer p => Picker p -> [Formula] -> Proof p
+proofTaut :: Proofer p => Picker p -> [TPTP_Input] -> Proof p
 proofTaut picker formulas = 
   case proofSAT (mkProofer picker formulas) Set.empty of
     NSAT nsatproof -> TAUTOLOGY nsatproof
     SAT witness    -> CONTRADICTION witness
     
 -- | syncatic models operator
-(|-) :: [Formula] -> [Formula] -> ([Formula], [Formula])
+(|-) :: [TPTP_Input] -> [TPTP_Input] -> ([TPTP_Input], [TPTP_Input])
 axioms |- conjectures = (axioms, conjectures)
 
 -- | checks if a given tptp input is a tautologie
@@ -128,9 +118,17 @@ proofInput :: Proofer p => Picker p -> [TPTP_Input] -> Proof p
 proofInput picker input = proof picker $ transformInputForTautologieCheck input
 
 -- | usage: check picker $ axioms |- conjectures
-check :: Proofer p => Picker p -> ([Formula], [Formula]) -> Bool
-check picker (axioms, conjectures) = isTaut picker (axioms ++ (Prelude.map (.~.) conjectures))
+check :: Proofer p => Picker p -> ([TPTP_Input], [TPTP_Input]) -> Bool
+check picker (axioms, conjectures) = isTaut picker (axioms ++ (Prelude.map negateConjecture conjectures))
+
+updateF :: (Formula -> Formula) -> TPTP_Input -> TPTP_Input
+updateF form (AFormula name role f ann)  = (AFormula name role (form f) ann)
+updateF _ x                              = x
 
 -- | usage: proof picker $ axioms |- conjectures
-proof :: Proofer p => Picker p -> ([Formula], [Formula]) -> Proof p
-proof picker (axioms, conjectures) = proofTaut picker (axioms ++ (Prelude.map (.~.) conjectures))
+proof :: Proofer p => Picker p -> ([TPTP_Input], [TPTP_Input]) -> Proof p
+proof picker (axioms, conjectures) = proofTaut picker (axioms ++ (Prelude.map negateConjecture conjectures))
+
+negateConjecture :: TPTP_Input -> TPTP_Input
+negateConjecture (AFormula n@(AtomicWord name) role f _) = 
+    (AFormula (AtomicWord $ "not_"++name) (Role "Theorem") (noDoubleNeg ((.~.) f)) (Annotations (GTerm (GApp (AtomicWord "negConjunction") [GTerm (GWord n)])) NoUsefulInfo))
