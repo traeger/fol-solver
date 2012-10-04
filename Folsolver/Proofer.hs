@@ -4,8 +4,8 @@ module Folsolver.Proofer
  ( Proofer(..), Proof, IsProof(..), mkSATProof
  , witnessSAT, witnessSAT0, getNSATProof, getNSATProof0
  , isTaut, proofTaut
- , isTautInput, proofTautInput, mkProoferInput
- , axiomsFromInput, conjecturesFromInput, transformInput
+ , mkProoferInput, axiomsFromInput, conjecturesFromInput, transformInput
+ , check, proof, checkInput, proofInput, (|-)
  ) where
 
 import Codec.TPTP
@@ -102,21 +102,35 @@ transformInputForTautologieCheck input =
 mkProoferInput :: Proofer p => Picker p -> [TPTP_Input] -> p
 mkProoferInput picker input = mkProofer picker $ transformInput input
 
--- |
--- |
-isTautInput :: Proofer p => Picker p -> [TPTP_Input] -> Bool
-isTautInput picker input = uncurry (isTaut picker) $ transformInputForTautologieCheck input
+-- | checks whether the given set of formulas are a tautologie
+isTaut :: Proofer p => Picker p -> [Formula] -> Bool
+isTaut picker formulas = not $ isSAT (mkProofer picker formulas) Set.empty
 
-isTaut :: Proofer p => Picker p -> [Formula] -> [Formula] -> Bool
-isTaut picker axioms conjectures = not $ isSAT (mkProofer picker $ axioms ++ (Prelude.map (.~.) conjectures)) Set.empty
-
--- |
--- |
-proofTautInput :: Proofer p => Picker p -> [TPTP_Input] -> Proof p
-proofTautInput picker input = uncurry (proofTaut picker) $ transformInputForTautologieCheck input
-
-proofTaut :: Proofer p => Picker p -> [Formula] -> [Formula] -> Proof p
-proofTaut picker axioms conjectures = 
-  case proofSAT (mkProofer picker $ axioms ++ (Prelude.map (.~.) conjectures)) Set.empty of
+-- | proofs whether the given set of formulas are a tautologie
+proofTaut :: Proofer p => Picker p -> [Formula] -> Proof p
+proofTaut picker formulas = 
+  case proofSAT (mkProofer picker formulas) Set.empty of
     NSAT nsatproof -> TAUTOLOGY nsatproof
     SAT witness    -> CONTRADICTION witness
+    
+-- | syncatic models operator
+(|-) :: [Formula] -> [Formula] -> ([Formula], [Formula])
+axioms |- conjectures = (axioms, conjectures)
+
+-- | checks if a given tptp input is a tautologie
+-- | thus if axioms |- conjectures
+checkInput :: Proofer p => Picker p -> [TPTP_Input] -> Bool
+checkInput picker input = check picker $ transformInputForTautologieCheck input
+
+-- | proofs whether a given tptp input is a tautologie
+-- | thus if axioms |- conjectures
+proofInput :: Proofer p => Picker p -> [TPTP_Input] -> Proof p
+proofInput picker input = proof picker $ transformInputForTautologieCheck input
+
+-- | usage: check picker $ axioms |- conjectures
+check :: Proofer p => Picker p -> ([Formula], [Formula]) -> Bool
+check picker (axioms, conjectures) = isTaut picker (axioms ++ (Prelude.map (.~.) conjectures))
+
+-- | usage: proof picker $ axioms |- conjectures
+proof :: Proofer p => Picker p -> ([Formula], [Formula]) -> Proof p
+proof picker (axioms, conjectures) = proofTaut picker (axioms ++ (Prelude.map (.~.) conjectures))
