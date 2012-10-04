@@ -86,33 +86,35 @@ isClosed (x:xs) forms
 proofSATTableau 
     :: 
     Tableau             -- Current branch of the tableau
-    -> Set Formula      -- Formulas seen so far
+    -> Set TPTP_Input      -- Formulas seen so far
     -> Proof Tableau 
-proofSATTableau BinEmpty forms = mkSATProof $ filter isLiteral $ S.toList $ forms
+proofSATTableau BinEmpty forms = mkSATProof $ filter isLiteral $ (map formula) $ S.toList $ forms
 proofSATTableau t forms
     | closed                = 
         let
-            witTPTP     = head $ filter (((==) $ fromJust witness).formula) $ value t
-            tillWit     = takeWhile (((/=) $ fromJust witness).formula) $ value t
+            witTPTP     = head $ filter ((==) $ fromJust witness) $ value t
+            tillWit     = takeWhile ((/=) $ fromJust witness) $ value t
             wName       = let (AtomicWord x) = name witTPTP in drop 12 x
-            term        = wrapF (BinOp (formula witTPTP) (:&:) (noDoubleNeg ((.~.) $ formula witTPTP)))
-            contradict = AFormula (AtomicWord $ "contradict_"++wName) (Role "theorem") term (Annotations (GTerm (GApp (AtomicWord "condtraction") [GTerm (GWord (AtomicWord "??")), GTerm (GWord $ name witTPTP)])) NoUsefulInfo)
+            cond        = head $ S.toList $ S.filter (((==) (noDoubleNeg ((.~.) $ formula witTPTP))).formula) forms
+            term        = wrapF (BinOp (formula cond) (:&:) (formula witTPTP))
+            contradict = AFormula (AtomicWord $ "contradict_"++wName) (Role "theorem") term (Annotations (GTerm (GApp (AtomicWord "contraction") [GTerm (GWord (name cond)), GTerm (GWord $ name witTPTP)])) NoUsefulInfo)
         in
             mkNSATProof $ leaf $ tillWit ++ [witTPTP,contradict]
     | isSATProof proofLeft  = proofLeft
     | isSATProof proofRight = proofRight
     | otherwise             = mkNSATProof $ fromNSATProofT proofLeft <# value t #> fromNSATProofT proofRight
     where
-        (closed, nForms, witness)  = isClosedWithWitness (map formula $ value t) forms
+        (closed, nForms, witness)  = isClosedWithWitness (value t) forms
         proofLeft   = proofSATTableau (left t) nForms
         proofRight  = proofSATTableau (right t) nForms
 
-isClosedWithWitness :: [Formula] -> Set Formula -> (Bool, Set Formula, Maybe Formula)
+isClosedWithWitness :: [TPTP_Input] -> Set TPTP_Input -> (Bool, Set TPTP_Input, Maybe TPTP_Input)
 isClosedWithWitness [] forms              = (False, forms, Nothing)
 isClosedWithWitness (x:xs) forms
-    | isTrue x                  = isClosedWithWitness xs forms
-    | isFalse x                 = (True, forms, Just x)
-    | S.member (noDoubleNeg ((.~.) x)) forms  = (True, forms, Just x)
+    | isTrue (formula x)        = isClosedWithWitness xs forms
+    | isFalse (formula x)       = (True, forms, Just x)
+    | S.member (noDoubleNeg ((.~.) (formula x))) (S.map formula forms)  
+                                = (True, forms, Just x)
     | otherwise                 = isClosedWithWitness xs (S.insert x forms)
   
 instance Proofer Tableau where
@@ -120,8 +122,8 @@ instance Proofer Tableau where
   data Picker Tableau = Picker {pick :: [TPTP_Input] -> (TPTP_Input, [TPTP_Input])}
   mkProofer (Picker picker) formulas = tableau picker formulas
   
-  isSAT tableau formulas = not $ checkTableau tableau formulas
-  proofSAT = proofSATTableau
+  isSAT tableau = not $ checkTableau tableau S.empty
+  proofSAT t = proofSATTableau t S.empty
 
 mkNSATProof = mkProof . NSAT
 fromNSATProofT = fromNSATproofT . getNSATProof0

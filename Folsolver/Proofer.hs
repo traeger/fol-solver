@@ -22,11 +22,11 @@ class HasPretty (NSATProof p) => Proofer p where
   mkProofer :: Picker p -> [TPTP_Input] -> p
   
   -- | tests whether a set of formulas is satisfiable
-  isSAT :: p -> Set Formula -> Bool
-  isSAT p = isSATProof . (proofSAT p)
+  isSAT :: p -> Bool
+  isSAT p = isSATProof (proofSAT p)
   -- | proofs whether a set of formulas is satisfiable
   -- | gives an counter example if it is not satisfiable
-  proofSAT :: p -> Set Formula -> Proof p
+  proofSAT :: p -> Proof p
   -- | whether a proof is a satisfiable proof
   isSATProof :: Proof p -> Bool
   isSATProof (SAT _) = True
@@ -40,10 +40,10 @@ class HasPretty (NSATProof p) => Proofer p where
   
 data Proof p = SAT [Formula] | NSAT (NSATProof p) | TAUTOLOGY (NSATProof p) | CONTRADICTION [Formula]
 instance HasPretty (NSATProof p) => HasPretty (Proof p) where
-  pretty (SAT witness)            = Pretty.text "satisfiable:"   $$ Pretty.nest 2 (pretty witness)
-  pretty (NSAT nsatproof)         = Pretty.text "unsatisfiable:" $$ Pretty.nest 2 (pretty nsatproof)
-  pretty (TAUTOLOGY nsatproof)    = Pretty.text "tautology:"     $$ Pretty.nest 2 (pretty nsatproof)
-  pretty (CONTRADICTION witness)  = Pretty.text "contradiction:" $$ Pretty.nest 2 (pretty witness)
+  pretty (SAT witness)            = Pretty.text "The input is satisfiable: (Assignment)" $$ Pretty.nest 2 (pretty witness)
+  pretty (NSAT nsatproof)         = Pretty.nest 2 (pretty nsatproof) $$ Pretty.text "\nThe input is not satisfiable."
+  pretty (TAUTOLOGY nsatproof)    = Pretty.nest 2 (pretty nsatproof) $$ Pretty.text "\nThe input is a tautology."
+  pretty (CONTRADICTION witness)  = Pretty.text "The input is a contradiction: (Assignment)" $$ Pretty.nest 2 (pretty witness)
 class (Proofer p) => IsProof a p where
   mkProof :: a -> Proof p
 
@@ -94,12 +94,12 @@ transformInputForTautologieCheck input =
 
 -- | checks whether the given set of formulas are a tautologie
 isTaut :: Proofer p => Picker p -> [TPTP_Input] -> Bool
-isTaut picker formulas = not $ isSAT (mkProofer picker formulas) Set.empty
+isTaut picker formulas = not $ isSAT (mkProofer picker formulas) 
 
 -- | proofs whether the given set of formulas are a tautologie
 proofTaut :: Proofer p => Picker p -> [TPTP_Input] -> Proof p
 proofTaut picker formulas = 
-  case proofSAT (mkProofer picker formulas) Set.empty of
+  case proofSAT (mkProofer picker formulas) of
     NSAT nsatproof -> TAUTOLOGY nsatproof
     SAT witness    -> CONTRADICTION witness
     
