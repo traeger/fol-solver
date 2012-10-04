@@ -54,7 +54,7 @@ tableauProof pick input = checkTableau (tableau pick $ transformInput input) S.e
  - |
  - | It returns true iff the input is satisfiable.
  -}
-tableauProofWithProof :: ([Formula] -> (Formula, [Formula])) -> [TPTP_Input] -> SATProof Tableau
+tableauProofWithProof :: ([Formula] -> (Formula, [Formula])) -> [TPTP_Input] -> Proof Tableau
 tableauProofWithProof pick input = checkTableauWithProof (tableau pick $ transformInput input) S.empty
  
   
@@ -98,13 +98,13 @@ checkTableauWithProof
     :: 
     Tableau             -- Current branch of the tableau
     -> Set Formula      -- Formulas seen so far
-    -> SATProof Tableau 
-checkTableauWithProof BinEmpty forms = mkSATProofT $ S.toList $ forms
+    -> Proof Tableau 
+checkTableauWithProof BinEmpty forms = mkProofT $ S.toList $ forms
 checkTableauWithProof t forms
-    | closed                 = mkSATProofT $ (flip (++) [fromJust witness]) $ takeWhile ((fromJust witness) ==) $ value t
-    | isSATProofT proofLeft  = proofLeft
-    | isSATProofT proofRight = proofRight
-    | otherwise              = mkNSATProofT $ fromNSATproofT proofLeft <# value t #> fromNSATproofT proofRight
+    | closed                = mkProofT $ (flip (++) [fromJust witness]) $ takeWhile ((fromJust witness) ==) $ value t
+    | isSATProof proofLeft  = proofLeft
+    | isSATProof proofRight = proofRight
+    | otherwise             = mkNSATProofT $ fromNSATProofT proofLeft <# value t #> fromNSATProofT proofRight
     where
         (closed, nForms, witness)  = isClosedWithProof (value t) forms
         proofLeft   = checkTableauWithProof (left t) nForms
@@ -118,24 +118,15 @@ isClosedWithProof (x:xs) forms
     | S.member (noDoubleNeg ((.~.) x)) forms  = (True, forms, Just x)
     | otherwise                 = isClosedWithProof xs (S.insert x forms)
   
-instance SATProofer Tableau where
-  data SATProof Tableau
-   = SAT {witnessT :: [Formula]} 
-   | NSAT {fromNSATproofT :: Tableau} deriving Show
+instance Proofer Tableau where
+  data NSATProof Tableau = NSAT {fromNSATproofT :: Tableau} deriving Show
   
   isSAT tableau formulas = checkTableau tableau formulas
   proofSAT tableau formulas = checkTableauWithProof tableau formulas
-  witnessSAT proof = if isSATProofT proof 
-                        then Just $ witnessT proof 
-                        else Nothing
-  
-mkSATProofT  :: [Formula] -> SATProof Tableau
-mkNSATProofT :: Tableau -> SATProof Tableau
-mkSATProofT = SAT
-mkNSATProofT = NSAT
 
-isSATProofT, isNSATProofT :: SATProof Tableau -> Bool
-isSATProofT (SAT _) = True
-isSATProofT _ = False
-isNSATProofT (NSAT _) = True
-isNSATProofT _ = False
+mkProofT = mkProof
+mkNSATProofT = mkProof . NSAT 
+fromNSATProofT = fromNSATproofT . getNSATProof0
+
+instance HasPretty (NSATProof Tableau) where
+  pretty (NSAT nsatproof) = show nsatproof

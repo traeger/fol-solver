@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -XTypeSynonymInstances -XFlexibleInstances #-}
+
 module Folsolver.TPTP
  ( wrapF
  , pretty, parseFormula
@@ -5,6 +7,7 @@ module Folsolver.TPTP
  , true, isTrue
  , false, isFalse
  , stripDoubleNeg, noDoubleNeg
+ , HasPretty 
  ) where
 
 import Codec.TPTP
@@ -18,9 +21,12 @@ import Data.Maybe (fromMaybe)
 wrapF :: Formula0 (T Identity) (F Identity) -> F Identity
 wrapF e = F $ Identity e
 
+class HasPretty a where
+  pretty :: a -> String
+
 -- pretty print of a formula
-pretty :: Formula -> String
-pretty f = (toTPTP f) ""
+instance HasPretty Formula where
+  pretty f = (toTPTP f) ""
 
 transformOnInput :: (Formula -> Formula) -> TPTP_Input -> TPTP_Input
 transformOnInput fun (AFormula name role form anno) = AFormula name role (fun form) anno
