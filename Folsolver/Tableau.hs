@@ -7,6 +7,7 @@ import Codec.TPTP
 import Folsolver.Normalform
 import Folsolver.Data.Tableau
 import Folsolver.TPTP
+import Folsolver.Proofer
 
 import Data.Set (Set) 
 import qualified Data.Set as S
@@ -92,15 +93,12 @@ isClosed (x:xs) forms
     | isFalse x                 = (True, forms)
     | S.member (noDoubleNeg ((.~.) x)) forms  = (True, forms)
     | otherwise                 = isClosed xs (S.insert x forms)
-    where 
-        noDoubleNeg :: Formula -> Formula
-        noDoubleNeg x = fromMaybe x (stripDoubleNeg x)
             
 checkTableauWithProof 
     :: 
     Tableau             -- Current branch of the tableau
     -> Set Formula      -- Formulas seen so far
-    -> SATProofT     
+    -> SATProof Tableau 
 checkTableauWithProof BinEmpty forms = mkSATProofT $ S.toList $ forms
 checkTableauWithProof t forms
     | closed                 = mkSATProofT $ (flip (++) [fromJust witness]) $ takeWhile ((fromJust witness) ==) $ value t
@@ -119,35 +117,24 @@ isClosedWithProof (x:xs) forms
     | isFalse x                 = (True, forms, Just x)
     | S.member (noDoubleNeg ((.~.) x)) forms  = (True, forms, Just x)
     | otherwise                 = isClosedWithProof xs (S.insert x forms)
-    where 
-        noDoubleNeg :: Formula -> Formula
-        noDoubleNeg x = fromMaybe x (stripDoubleNeg x)
-            
-class SATProver p where
-  type SATProof p :: *
   
-  isSAT :: p -> Set Formula -> Bool
-  proofSAT :: p -> Set Formula -> SATProof p
-  isSATProof :: SATProof p -> Bool
-  isNSATProof :: SATProof p -> Bool
-  
-instance SATProver Tableau where
-  type SATProof Tableau = SATProofT
+instance SATProofer Tableau where
+  data SATProof Tableau
+   = SAT {witnessT :: [Formula]} 
+   | NSAT {fromNSATproofT :: Tableau} deriving Show
   
   isSAT tableau formulas = checkTableau tableau formulas
   proofSAT tableau formulas = checkTableauWithProof tableau formulas
-  isSATProof = isSATProofT
-  isNSATProof = isNSATProofT
+  witnessSAT proof = if isSATProofT proof 
+                        then Just $ witnessT proof 
+                        else Nothing
   
-data SATProofT
- = SAT {witnessT :: [Formula]} 
- | NSAT {fromNSATproofT :: Tableau} deriving Show
-mkSATProofT  :: [Formula] -> SATProofT
-mkNSATProofT :: Tableau -> SATProofT
+mkSATProofT  :: [Formula] -> SATProof Tableau
+mkNSATProofT :: Tableau -> SATProof Tableau
 mkSATProofT = SAT
 mkNSATProofT = NSAT
 
-isSATProofT, isNSATProofT :: SATProofT -> Bool
+isSATProofT, isNSATProofT :: SATProof Tableau -> Bool
 isSATProofT (SAT _) = True
 isSATProofT _ = False
 isNSATProofT (NSAT _) = True

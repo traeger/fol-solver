@@ -4,13 +4,14 @@ module Folsolver.TPTP
  , transformOnInput
  , true, isTrue
  , false, isFalse
- , stripDoubleNeg
+ , stripDoubleNeg, noDoubleNeg
  ) where
 
 import Codec.TPTP
 import Data.Functor.Identity
 import System.Random
 import System.IO.Unsafe
+import Data.Maybe (fromMaybe)
 
 -- wrap F around a Formula0 using Identity
 -- reverse of unwrapF on Identity
@@ -50,6 +51,12 @@ stripDoubleNeg x = case unwrapF x of
     (:~:) x1 -> Just x1
     _        -> Nothing
   _        -> Nothing
+
+-- | removes a double negation from a formula if present
+-- |       ~~x --> x where x can be any formula
+-- | otherwise --> id
+noDoubleNeg :: Formula -> Formula
+noDoubleNeg x = fromMaybe x (stripDoubleNeg x)
   
 -- | returns a random value uniformly distributed in the closed interval [min,max] in an IO-Monad
 rndIO :: Random a => a -> a -> IO a
