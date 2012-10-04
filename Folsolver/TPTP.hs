@@ -8,6 +8,7 @@ module Folsolver.TPTP
  , false, isFalse
  , stripDoubleNeg, noDoubleNeg
  , HasPretty(..), Formula(..)
+ , rnd, rndIO 
  ) where
 
 import Codec.TPTP

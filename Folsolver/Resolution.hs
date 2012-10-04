@@ -24,6 +24,8 @@ import Codec.TPTP
 {- | In a ResFormula the inner lists are all connected
  - | by conjecture and the formulas in the inner lists
  - | are connected by disjuncture.
+ -
+ - | By Resolution term exists as it is in clause1 and negated in clause2
  -}
 type ResFormula = [[Formula]]
 
@@ -66,16 +68,39 @@ resolution pick res     = case pick res of
     (NoAction)                  -> []
     (Reduction toRed clause)    -> let c = delete toRed clause in 
         case abFormula toRed of
-            Alpha a1 a2   -> (a1 : c) : (a2 : c) : resolution pick ((a1 : c) : (a2 : c) : res)
+            Alpha a1 a2   -> 
+                let new =  [a:c | a <- [a1,a2], notElem (a:c) res] in
+                    new ++ resolution pick (new ++ res)
             Beta b1 b2    -> (b1 : b2 : c) : resolution pick ((b1 : b2 : c) : res)
             NoType f      -> case stripDoubleNeg f of
               Just f0       -> (f0 : c) : resolution pick ((f0:c):res)
               Nothing       -> resolution pick res
-    (Resolution c1 c2 t)         -> (delete t (c1 ++ c2)) : resolution pick (res ++ [delete t (c1++c2)])
+    (Resolution c1 c2 t)         -> 
+            let
+                cd1 = delete t c1
+                cd2 = delete (noDoubleNeg ((.~.) t)) c2
+            in
+                (cd1 ++ cd2) : resolution pick (res ++ [cd1++cd2])
 
 
 
 resSimplePick :: ResFormula -> ResAction
-resSimplePick xs    = undefined
-
- 
+resSimplePick xs    = case rnd False True of
+    True    -> 
+        let
+            c1 = xs !! rnd 0 (length xs)
+            t1 = c1 !! rnd 0 (length c1)
+        in
+            Reduction t1 c1
+    False   -> 
+        let
+            c1 = xs !! rnd 0 (length xs)
+            c2 = xs !! rnd 0 (length xs)
+            op = [ red | red <- c1, y <- c2, red == (noDoubleNeg ((.~.) y))] 
+        in
+            if null op
+            then
+                resSimplePick xs
+            else
+                Resolution c1 c2 (head op)               
+            
