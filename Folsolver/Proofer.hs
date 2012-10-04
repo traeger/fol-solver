@@ -13,6 +13,7 @@ class SATProofer p where
   
   -- | tests whether a set of formulas is satisfiable
   isSAT :: p -> Set Formula -> Bool
+  isSAT p = isSATProof . (proofSAT p)
   -- | proofs whether a set of formulas is satisfiable
   -- | gives an counter example if it is not satisfiable
   proofSAT :: p -> Set Formula -> SATProof p
@@ -24,3 +25,4 @@ class SATProofer p where
   isNSATProof = not . isSATProof
   -- | the witness of a SAT proof, Nothing if the proof was no SAT proof
   witnessSAT :: SATProof p -> Maybe ([Formula])
+  -- | minmal definition: proofSAT, witnessSAT
