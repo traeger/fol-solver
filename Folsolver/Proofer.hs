@@ -4,8 +4,8 @@ module Folsolver.Proofer
  ( Proofer(..), Proof, IsProof(..), mkSATProof
  , witnessSAT, witnessSAT0, getNSATProof, getNSATProof0
  , isTaut, proofTaut
- , isTautInput, proofTautInput, mkProoferInput
- , axiomsFromInput, conjecturesFromInput, transformInput
+ , mkProoferInput, axiomsFromInput, conjecturesFromInput, transformInput
+ , check, proof, checkInput, proofInput, (|-)
  ) where
 
 import Codec.TPTP
@@ -102,21 +102,31 @@ transformInputForTautologieCheck input =
 mkProoferInput :: Proofer p => Picker p -> [TPTP_Input] -> p
 mkProoferInput picker input = mkProofer picker $ transformInput input
 
--- |
--- |
-isTautInput :: Proofer p => Picker p -> [TPTP_Input] -> Bool
-isTautInput picker input = uncurry (isTaut picker) $ transformInputForTautologieCheck input
+isTaut :: Proofer p => Picker p -> [Formula] -> Bool
+isTaut picker formulas = not $ isSAT (mkProofer picker formulas) Set.empty
 
-isTaut :: Proofer p => Picker p -> [Formula] -> [Formula] -> Bool
-isTaut picker axioms conjectures = not $ isSAT (mkProofer picker $ axioms ++ (Prelude.map (.~.) conjectures)) Set.empty
-
--- |
--- |
-proofTautInput :: Proofer p => Picker p -> [TPTP_Input] -> Proof p
-proofTautInput picker input = uncurry (proofTaut picker) $ transformInputForTautologieCheck input
-
-proofTaut :: Proofer p => Picker p -> [Formula] -> [Formula] -> Proof p
-proofTaut picker axioms conjectures = 
-  case proofSAT (mkProofer picker $ axioms ++ (Prelude.map (.~.) conjectures)) Set.empty of
+proofTaut :: Proofer p => Picker p -> [Formula] -> Proof p
+proofTaut picker formulas = 
+  case proofSAT (mkProofer picker formulas) Set.empty of
     NSAT nsatproof -> TAUTOLOGY nsatproof
     SAT witness    -> CONTRADICTION witness
+    
+-- | models
+(|-) :: [Formula] -> [Formula] -> ([Formula], [Formula])
+axioms |- conjectures = (axioms, conjectures)
+
+-- |
+-- |
+checkInput :: Proofer p => Picker p -> [TPTP_Input] -> Bool
+checkInput picker input = check picker $ transformInputForTautologieCheck input
+
+-- |
+-- |
+proofInput :: Proofer p => Picker p -> [TPTP_Input] -> Proof p
+proofInput picker input = proof picker $ transformInputForTautologieCheck input
+
+check :: Proofer p => Picker p -> ([Formula], [Formula]) -> Bool
+check picker (axioms, conjectures) = isTaut picker (axioms ++ (Prelude.map (.~.) conjectures))
+
+proof :: Proofer p => Picker p -> ([Formula], [Formula]) -> Proof p
+proof picker (axioms, conjectures) = proofTaut picker (axioms ++ (Prelude.map (.~.) conjectures))
