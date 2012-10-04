@@ -10,7 +10,7 @@ import Folsolver.TPTP
 
 import Data.Set (Set) 
 import qualified Data.Set as S
-import Data.Maybe (fromJust)
+import Data.Maybe (fromJust, fromMaybe)
 
 simplePick :: [Formula] -> (Formula, [Formula])
 simplePick (f:fs) = (f,fs)
@@ -32,13 +32,11 @@ tableau0 pick formulas t =
     (f,fs) = pick formulas
     ab = abFormula f
   in case ab of
-    Alpha a1 a2 -> tableau0 pick (fs++[a1,a2]) (leaf $ value t ++ [a1, a2])                        -- handle alpha formulas
-    Beta b1 b2  -> tableau0 pick fs (leaf [b1])  <# value t #> tableau0 pick fs (leaf [b2])        -- handle beta formulas
-    NoType _    -> case unwrapF f of
-      (:~:) f0     -> case unwrapF f0 of
-        (:~:) f1      -> tableau0 pick (fs++[f1]) (leaf $ value t ++ [f1])                       -- handle double negate
-        otherwise     -> tableau0 pick fs t
-      otherwise -> tableau0 pick fs t
+    Alpha a1 a2 -> tableau0 pick (fs++[a1,a2]) (leaf $ value t ++ [a1, a2])               -- handle alpha formulas
+    Beta b1 b2  -> tableau0 pick fs (leaf [b1])  <# value t #> tableau0 pick fs (leaf [b2])  -- handle beta formulas
+    NoType _    -> case stripDoubleNeg f of
+      Just f0     -> tableau0 pick (fs++[f0]) (leaf $ value t ++ [f0])                    -- handle double negate
+      Nothing     -> tableau0 pick fs t
 
 {- 
  - | This tableau Proover takes a List of TPTP inputs,
@@ -92,15 +90,11 @@ isClosed [] forms              = (False, forms)
 isClosed (x:xs) forms
     | isTrue x                  = isClosed xs forms
     | isFalse x                 = (True, forms)
-    | S.member (noDoubleNot ((.~.) x)) forms  = (True, forms)
+    | S.member (noDoubleNeg ((.~.) x)) forms  = (True, forms)
     | otherwise                 = isClosed xs (S.insert x forms)
     where 
-        noDoubleNot :: Formula -> Formula
-        noDoubleNot x = case unwrapF x of
-            (:~:) x0        -> case unwrapF x0 of
-                (:~:) x1    -> x1
-                _           -> x
-            _               -> x
+        noDoubleNeg :: Formula -> Formula
+        noDoubleNeg x = fromMaybe x (stripDoubleNeg x)
             
 checkTableauWithProof 
     :: 
@@ -123,15 +117,11 @@ isClosedWithProof [] forms              = (False, forms, Nothing)
 isClosedWithProof (x:xs) forms
     | isTrue x                  = isClosedWithProof xs forms
     | isFalse x                 = (True, forms, Just x)
-    | S.member (noDoubleNot ((.~.) x)) forms  = (True, forms, Just x)
+    | S.member (noDoubleNeg ((.~.) x)) forms  = (True, forms, Just x)
     | otherwise                 = isClosedWithProof xs (S.insert x forms)
     where 
-        noDoubleNot :: Formula -> Formula
-        noDoubleNot x = case unwrapF x of
-            (:~:) x0        -> case unwrapF x0 of
-                (:~:) x1    -> x1
-                _           -> x
-            _               -> x
+        noDoubleNeg :: Formula -> Formula
+        noDoubleNeg x = fromMaybe x (stripDoubleNeg x)
             
 class SATProver p where
   type SATProof p :: *

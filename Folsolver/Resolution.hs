@@ -66,13 +66,11 @@ resolution pick res     = case pick res of
     (NoAction)                  -> []
     (Reduction toRed clause)    -> let c = delete toRed clause in 
         case abFormula toRed of
-            (Alpha a1 a2)   -> (a1 : c) : (a2 : c) : resolution pick ((a1 : c) : (a2 : c) : res)
-            (Beta b1 b2)    -> (b1 : b2 : c) : resolution pick ((b1 : b2 : c) : res)
-            (NoType f)  -> case unwrapF f of
-                (:~:) f0    -> case unwrapF f0 of
-                    (:~:) f1    -> (f1 : c) : resolution pick ((f1:c):res)
-                    _           -> resolution pick res
-                _            -> resolution pick res
+            Alpha a1 a2   -> (a1 : c) : (a2 : c) : resolution pick ((a1 : c) : (a2 : c) : res)
+            Beta b1 b2    -> (b1 : b2 : c) : resolution pick ((b1 : b2 : c) : res)
+            NoType f      -> case stripDoubleNeg f of
+              Just f0       -> (f0 : c) : resolution pick ((f0:c):res)
+              Nothing       -> resolution pick res
     (Resolution c1 c2 t)         -> (delete t (c1 ++ c2)) : resolution pick (res ++ [delete t (c1++c2)])
 
 
