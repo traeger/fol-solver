@@ -1,11 +1,12 @@
 module Folsolver.Normalform.ABFormula
  ( abFormula, ABFormula(..)
- , isAlpha, isBeta
+ , isAlpha, isBeta, isLiteral
  ) where
 
 import Codec.TPTP
 import Data.Functor.Identity
 import Folsolver.TPTP
+import Data.Maybe(isNothing)
 
 data ABFormula = Alpha {alpha1 :: Formula, alpha2 :: Formula} | Beta {beta1 :: Formula, beta2 :: Formula} | NoType Formula
         deriving (Eq,Ord,Read)
@@ -20,6 +21,14 @@ isAlpha (Alpha _ _) = True
 isAlpha _ = False
 isBeta (Beta _ _) = True
 isBeta _ = False
+
+-- | Checks, if we have a literal in our formula
+isLiteral :: Formula -> Bool
+isLiteral x     =
+    case abFormula x of
+        (NoType _)  -> isNothing $ stripDoubleNeg x
+        _           -> False
+
 
 -- | Function will deliver a alpha - beta- connectivity formula, if
 -- | it is binary connected. If it is not a binary connected formula,

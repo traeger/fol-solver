@@ -1,6 +1,6 @@
 module Folsolver.Normalform
  ( abFormula, ABFormula(..)
- , isAlpha, isBeta
+ , isAlpha, isBeta, isLiteral
    --
  , mkNeg, negQ, negNormal, negNormalNeg
  ) where
