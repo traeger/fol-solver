@@ -34,6 +34,10 @@ instance (HasPretty a) => HasPretty [a] where
 instance HasPretty Formula where
   pretty f = Pretty.text $ (toTPTP f) ""
 
+-- pretty to print TPTP
+instance HasPretty TPTP_Input where
+    pretty f = Pretty.text $ (toTPTP f) ""
+
 transformOnInput :: (Formula -> Formula) -> TPTP_Input -> TPTP_Input
 transformOnInput fun (AFormula name role form anno) = AFormula name role (fun form) anno
 

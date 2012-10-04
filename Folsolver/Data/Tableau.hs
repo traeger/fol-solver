@@ -6,4 +6,4 @@ module Folsolver.Data.Tableau
 import Folsolver.Data.BinTree
 import Codec.TPTP
 
-type Tableau = BinTree [Formula]
+type Tableau = BinTree [TPTP_Input]
