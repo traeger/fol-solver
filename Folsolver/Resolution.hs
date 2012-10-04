@@ -3,6 +3,8 @@ module Folsolver.Resolution where
 import Folsolver.TPTP
 import Folsolver.Normalform
 
+import Data.List
+
 import Codec.TPTP
 
 {-
@@ -25,7 +27,7 @@ import Codec.TPTP
  -}
 type ResFormula = [[Formula]]
 
-data ResAction =    Reduction { formula :: Formula , clause :: [Formula]}
+data ResAction =    Reduction { reduce :: Formula , clause :: [Formula]}
                 |   Resolution { clause1 :: [Formula] , clause2 :: [Formula] , term :: Formula}
                 |   NoAction
                     
@@ -40,7 +42,7 @@ transformInput :: [TPTP_Input] -> [Formula]
 transformInput []                                           = []
 transformInput (AFormula _ (Role "conjecture") f _:xs)      = ((.~.) f) : transformInput xs
 transformInput (AFormula _ (Role "axiom") f _:xs)           = f : transformInput xs
-transformInput (_:xs)  
+transformInput (_:xs)                                       = transformInput xs 
 
 {-
  - | Takes a formula to pick the next step
@@ -52,8 +54,8 @@ resolutionProof
     (ResFormula -> ResAction)                   -- This function will consider what to do next
     -> [TPTP_Input]                             -- A list of TPTP input formulas
     -> Bool
-resolutionProof pick forms  = elem []  $ map (flip (:) []) forms' ++ resolution pick forms' (map (flip (:) []) forms')
-    where forms' = map formula $ transformInput forms
+resolutionProof pick forms  = elem []  $ map (flip (:) []) forms' ++ resolution pick (map (flip (:) []) forms')
+    where forms' = transformInput forms
 
 
 {- | The resolution function creates lazy the complete resolution list.
@@ -62,19 +64,20 @@ resolutionProof pick forms  = elem []  $ map (flip (:) []) forms' ++ resolution 
 resolution :: (ResFormula -> ResAction) -> ResFormula -> ResFormula
 resolution pick res     = case pick res of
     (NoAction)                  -> []
-    (Reduction toRed clause)    -> let c = del toRed clause in 
+    (Reduction toRed clause)    -> let c = delete toRed clause in 
         case abFormula toRed of
-            (Alpha a1 a2)   -> (a1 : c) : (a2 : c) : resolution pick (res ++ [a1 : c,a2 : c])
-            (Beta b1 b2)    -> (b1 : b2 : c) : resolution pick (res ++ [b1 : b2 : c]
+            (Alpha a1 a2)   -> (a1 : c) : (a2 : c) : resolution pick ((a1 : c) : (a2 : c) : res)
+            (Beta b1 b2)    -> (b1 : b2 : c) : resolution pick ((b1 : b2 : c) : res)
             (NoType f)  -> case unwrapF f of
                 (:~:) f0    -> case unwrapF f0 of
-                    (:~:) f1    -> (f1 : c) : resolution pick (res ++ (f1:c))
+                    (:~:) f1    -> (f1 : c) : resolution pick ((f1:c):res)
                     _           -> resolution pick res
                 _            -> resolution pick res
-    (Resolution c1 c2 t)         -> (del t (c1 ++ c2)) : resolution pick (res ++ [del t (c1++c2)])
+    (Resolution c1 c2 t)         -> (delete t (c1 ++ c2)) : resolution pick (res ++ [delete t (c1++c2)])
 
 
 
 resSimplePick :: ResFormula -> ResAction
-resSimplePick xs    = 
+resSimplePick xs    = undefined
+
  
