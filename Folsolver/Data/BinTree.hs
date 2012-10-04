@@ -3,6 +3,10 @@ module Folsolver.Data.BinTree
  , empty, leaf, (<#), (#>)
  ) where
 
+import Folsolver.TPTP
+import Text.PrettyPrint.HughesPJ as Pretty hiding (empty)
+import qualified Text.PrettyPrint.HughesPJ as Pretty (empty)
+
 data BinTree v
  = BinNode {left :: BinTree v, value :: v, right :: BinTree v}
  | BinEmpty deriving (Eq)
@@ -10,6 +14,15 @@ data BinTree v
 instance (Show v) => Show (BinTree v) where
   show BinEmpty = "^"
   show tree = "(" ++ (show $ left tree) ++ ") <# " ++ (show $ value tree) ++ " #> (" ++ (show $ right tree) ++ ")"
+
+instance (HasPretty v) => HasPretty (BinTree v) where
+  pretty BinEmpty = Pretty.empty
+  pretty tree = 
+       (pretty $ value tree)
+    $$ Pretty.nest 2 ( 
+         (pretty $ left tree) 
+      $$ (pretty $ right tree)
+    )
 
 empty :: BinTree v
 empty = BinEmpty

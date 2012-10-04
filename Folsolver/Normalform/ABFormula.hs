@@ -11,9 +11,9 @@ data ABFormula = Alpha {alpha1 :: Formula, alpha2 :: Formula} | Beta {beta1 :: F
         deriving (Eq,Ord,Read)
 
 instance Show ABFormula where
-    show (Alpha a b)    = "Alpha { "++pretty a++" } { "++pretty b++" }"
-    show (Beta a b)     = "Beta { "++pretty a++" } { "++pretty b++" }"
-    show (NoType a)     = "Atom { "++pretty a++" }"
+    show (Alpha a b)    = "Alpha { "++ (show . pretty) a++" } { "++ (show . pretty) b++" }"
+    show (Beta a b)     = "Beta { "++ (show . pretty) a++" } { "++ (show . pretty) b++" }"
+    show (NoType a)     = "Atom { "++ (show . pretty) a++" }"
 
 isAlpha, isBeta :: ABFormula -> Bool
 isAlpha (Alpha _ _) = True

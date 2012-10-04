@@ -1,0 +1,3 @@
+fof(ax1,axiom,lives(x,a) => dead(x)).
+fof(ax2,axiom,lives(x,a)).
+fof(con,conjecture,dead(x)).

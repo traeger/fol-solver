@@ -1,7 +1,7 @@
 {-# OPTIONS_GHC -XTypeSynonymInstances -XMultiParamTypeClasses -XFlexibleInstances -XTypeFamilies #-}
 
 module Folsolver.Tableau
- ( tableau, tableauProof, simplePick ) where
+ ( tableau, checkTableau, proofSATTableau, Proofer(..), simplePick ) where
 
 import Codec.TPTP
 import Folsolver.Normalform
@@ -12,6 +12,8 @@ import Folsolver.Proofer
 import Data.Set (Set) 
 import qualified Data.Set as S
 import Data.Maybe (fromJust, fromMaybe)
+
+import Text.PrettyPrint.HughesPJ as Pretty
 
 simplePick :: [Formula] -> (Formula, [Formula])
 simplePick (f:fs) = (f,fs)
@@ -34,39 +36,10 @@ tableau0 pick formulas t =
     ab = abFormula f
   in case ab of
     Alpha a1 a2 -> tableau0 pick (fs++[a1,a2]) (leaf $ value t ++ [a1, a2])               -- handle alpha formulas
-    Beta b1 b2  -> tableau0 pick fs (leaf [b1])  <# value t #> tableau0 pick fs (leaf [b2])  -- handle beta formulas
+    Beta b1 b2  -> tableau0 pick (fs++[b1]) (leaf [b1])  <# value t #> tableau0 pick (fs++[b2]) (leaf [b2])  -- handle beta formulas
     NoType _    -> case stripDoubleNeg f of
       Just f0     -> tableau0 pick (fs++[f0]) (leaf $ value t ++ [f0])                    -- handle double negate
       Nothing     -> tableau0 pick fs t
-
-{- 
- - | This tableau Proover takes a List of TPTP inputs,
- - | momentarily only axiom and conjecture,
- - |
- - | It returns true iff the input is satisfiable.
- -}
-tableauProof :: ([Formula] -> (Formula, [Formula])) -> [TPTP_Input] -> Bool
-tableauProof pick input = checkTableau (tableau pick $ transformInput input) S.empty
-
-{- 
- - | This tableau Proover takes a List of TPTP inputs,
- - | momentarily only axiom and conjecture,
- - |
- - | It returns true iff the input is satisfiable.
- -}
-tableauProofWithProof :: ([Formula] -> (Formula, [Formula])) -> [TPTP_Input] -> Proof Tableau
-tableauProofWithProof pick input = checkTableauWithProof (tableau pick $ transformInput input) S.empty
- 
-  
-{-
- - | Takes the formulas from the input
- - | if it is a conjecture it will be negated
- -} 
-transformInput :: [TPTP_Input] -> [Formula]
-transformInput []                                           = []
-transformInput (AFormula _ (Role "conjecture") f _:xs)      = ((.~.) f) : transformInput xs
-transformInput (AFormula _ (Role "axiom") f _:xs)           = f : transformInput xs
-transformInput (_:xs)                                       = transformInput xs
 
 {-
  - | This function iterates over the tableau and checks
@@ -94,39 +67,40 @@ isClosed (x:xs) forms
     | S.member (noDoubleNeg ((.~.) x)) forms  = (True, forms)
     | otherwise                 = isClosed xs (S.insert x forms)
             
-checkTableauWithProof 
+proofSATTableau 
     :: 
     Tableau             -- Current branch of the tableau
     -> Set Formula      -- Formulas seen so far
     -> Proof Tableau 
-checkTableauWithProof BinEmpty forms = mkProofT $ S.toList $ forms
-checkTableauWithProof t forms
-    | closed                = mkProofT $ (flip (++) [fromJust witness]) $ takeWhile ((fromJust witness) ==) $ value t
+proofSATTableau BinEmpty forms = mkSATProof $ S.toList $ forms
+proofSATTableau t forms
+    | closed                = mkNSATProof $ leaf $ (flip (++) [fromJust witness]) $ takeWhile ((fromJust witness) /=) $ value t
     | isSATProof proofLeft  = proofLeft
     | isSATProof proofRight = proofRight
-    | otherwise             = mkNSATProofT $ fromNSATProofT proofLeft <# value t #> fromNSATProofT proofRight
+    | otherwise             = mkNSATProof $ fromNSATProofT proofLeft <# value t #> fromNSATProofT proofRight
     where
-        (closed, nForms, witness)  = isClosedWithProof (value t) forms
-        proofLeft   = checkTableauWithProof (left t) nForms
-        proofRight  = checkTableauWithProof (right t) nForms
+        (closed, nForms, witness)  = isClosedWithWitness (value t) forms
+        proofLeft   = proofSATTableau (left t) nForms
+        proofRight  = proofSATTableau (right t) nForms
 
-isClosedWithProof :: [Formula] -> Set Formula -> (Bool, Set Formula, Maybe Formula)
-isClosedWithProof [] forms              = (False, forms, Nothing)
-isClosedWithProof (x:xs) forms
-    | isTrue x                  = isClosedWithProof xs forms
+isClosedWithWitness :: [Formula] -> Set Formula -> (Bool, Set Formula, Maybe Formula)
+isClosedWithWitness [] forms              = (False, forms, Nothing)
+isClosedWithWitness (x:xs) forms
+    | isTrue x                  = isClosedWithWitness xs forms
     | isFalse x                 = (True, forms, Just x)
     | S.member (noDoubleNeg ((.~.) x)) forms  = (True, forms, Just x)
-    | otherwise                 = isClosedWithProof xs (S.insert x forms)
+    | otherwise                 = isClosedWithWitness xs (S.insert x forms)
   
 instance Proofer Tableau where
   data NSATProof Tableau = NSAT {fromNSATproofT :: Tableau} deriving Show
+  data Picker Tableau = Picker {pick :: [Formula] -> (Formula, [Formula])}
+  mkProofer (Picker picker) formulas = tableau picker formulas
   
-  isSAT tableau formulas = checkTableau tableau formulas
-  proofSAT tableau formulas = checkTableauWithProof tableau formulas
+  isSAT tableau formulas = not $ checkTableau tableau formulas
+  proofSAT = proofSATTableau
 
-mkProofT = mkProof
-mkNSATProofT = mkProof . NSAT 
+mkNSATProof = mkProof . NSAT
 fromNSATProofT = fromNSATproofT . getNSATProof0
 
 instance HasPretty (NSATProof Tableau) where
-  pretty (NSAT nsatproof) = show nsatproof
+  pretty (NSAT nsatproof) = Pretty.text "  [ tableau proof ]" $$ pretty nsatproof

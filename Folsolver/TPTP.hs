@@ -2,12 +2,12 @@
 
 module Folsolver.TPTP
  ( wrapF
- , pretty, parseFormula
+ , parseFormula
  , transformOnInput
  , true, isTrue
  , false, isFalse
  , stripDoubleNeg, noDoubleNeg
- , HasPretty 
+ , HasPretty(..), Formula(..)
  ) where
 
 import Codec.TPTP
@@ -15,6 +15,8 @@ import Data.Functor.Identity
 import System.Random
 import System.IO.Unsafe
 import Data.Maybe (fromMaybe)
+import Data.List (intercalate)
+import Text.PrettyPrint.HughesPJ as Pretty
 
 -- wrap F around a Formula0 using Identity
 -- reverse of unwrapF on Identity
@@ -22,11 +24,14 @@ wrapF :: Formula0 (T Identity) (F Identity) -> F Identity
 wrapF e = F $ Identity e
 
 class HasPretty a where
-  pretty :: a -> String
+  pretty :: a -> Pretty.Doc
+
+instance (HasPretty a) => HasPretty [a] where
+  pretty as = Pretty.brackets $ Pretty.cat $ (Pretty.punctuate Pretty.comma) $ map pretty as
 
 -- pretty print of a formula
 instance HasPretty Formula where
-  pretty f = (toTPTP f) ""
+  pretty f = Pretty.text $ (toTPTP f) ""
 
 transformOnInput :: (Formula -> Formula) -> TPTP_Input -> TPTP_Input
 transformOnInput fun (AFormula name role form anno) = AFormula name role (fun form) anno
@@ -64,9 +69,11 @@ stripDoubleNeg x = case unwrapF x of
 noDoubleNeg :: Formula -> Formula
 noDoubleNeg x = fromMaybe x (stripDoubleNeg x)
   
--- | returns a random value uniformly distributed in the closed interval [min,max] in an IO-Monad
+-- | returns a random value uniformly distributed in the closed interval [min,max] 
+-- | in an IO-Monad
 rndIO :: Random a => a -> a -> IO a
 rndIO min max = getStdRandom (randomR (min,max))
--- | returns a random value uniformly distributed in the closed interval [min,max] (uses unsafePerformIO, so be careful!)
+-- | returns a random value uniformly distributed in the closed interval [min,max] 
+-- | (uses unsafePerformIO, so be careful!)
 rnd :: Random a => a -> a -> a
 rnd min max = unsafePerformIO $ rndIO min max
