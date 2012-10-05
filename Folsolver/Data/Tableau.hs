@@ -1,6 +1,5 @@
 module Folsolver.Data.Tableau 
- ( Tableau(..), BinTree(..)
- , empty, leaf, (<#), (#>)
+ ( Tableau(..), module Folsolver.Data.BinTree
  ) where
 
 import Folsolver.Data.BinTree

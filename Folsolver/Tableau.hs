@@ -1,7 +1,8 @@
 {-# OPTIONS_GHC -XTypeSynonymInstances -XMultiParamTypeClasses -XFlexibleInstances -XTypeFamilies #-}
 
 module Folsolver.Tableau
- ( tableau, checkTableau, proofSATTableau, Proofer(..), simplePick ) where
+ ( tableau, checkTableau, proofSATTableau, Proofer(..), simplePick
+ , checkT, proofT, subProof ) where
 
 import Codec.TPTP
 import Folsolver.Normalform
@@ -12,6 +13,7 @@ import Folsolver.Proofer
 import Data.Set (Set) 
 import qualified Data.Set as S
 import Data.Maybe (fromJust, fromMaybe)
+import Data.List (nub)
 
 import Text.PrettyPrint.HughesPJ as Pretty
 
@@ -88,7 +90,7 @@ proofSATTableau
     Tableau             -- Current branch of the tableau
     -> Set TPTP_Input      -- Formulas seen so far
     -> Proof Tableau 
-proofSATTableau BinEmpty forms = mkSATProof $ filter isLiteral $ (map formula) $ S.toList $ forms
+proofSATTableau BinEmpty forms = mkSATProof $ nub $ filter isLiteral $ (map formula) $ S.toList $ forms
 proofSATTableau t forms
     | closed                = 
         let
@@ -130,3 +132,22 @@ fromNSATProofT = fromNSATproofT . getNSATProof0
 
 instance HasPretty (NSATProof Tableau) where
   pretty (NSAT nsatproof) = Pretty.text "  [ tableau proof ]" $$ pretty nsatproof
+
+-- | shorthands to use a tableau proofer
+proofT = proof (Picker simplePick)
+checkT = check (Picker simplePick)
+
+-- | shows a subtree
+subProof :: Int -> Proof Tableau -> Proof Tableau
+subProof number (t) = mkNSATProof (subProof0 number $ fromNSATProofT t)
+subProof0 :: Int -> Tableau -> Tableau
+subProof0 number t = 
+  let 
+    (path, t0) = subtree (map (intToBool) $ decToBin number) t
+  in 
+    modRootValue ((concat path) ++ ) t0 where
+      intToBool 0 = False
+      intToBool _ = True
+      decToBin x = reverse $ decToBin' x where
+        decToBin' 0 = []
+        decToBin' y = let (a,b) = quotRem y 2 in [b] ++ decToBin' a

@@ -1,11 +1,14 @@
 module Folsolver.Data.BinTree
  ( BinTree(..)
  , empty, leaf, (<#), (#>)
+ , subtree, modRootValue
  ) where
 
 import Folsolver.TPTP
-import Text.PrettyPrint.HughesPJ as Pretty hiding (empty)
+import Text.PrettyPrint.HughesPJ as Pretty hiding (empty, first)
 import qualified Text.PrettyPrint.HughesPJ as Pretty (empty)
+
+import Control.Arrow (first)
 
 data BinTree v
  = BinNode {left :: BinTree v, value :: v, right :: BinTree v}
@@ -44,3 +47,19 @@ lefthalf #> right = lefthalf right
 instance Functor BinTree where
   fmap f BinEmpty = BinEmpty
   fmap f tree = (fmap f $ left tree) <# (f $ value tree) #> (fmap f $ right tree)
+
+-- | modifies the root value of a tree
+modRootValue :: (v -> v) -> BinTree v -> BinTree v
+modRootValue _ BinEmpty = BinEmpty
+modRootValue f t = left t <# f (value t) #> right t
+
+-- | subtree of a given path through the tree
+-- | each element on the path will be returned together with the
+-- | subtree where the path ends
+-- |   when a True is find as a first element of a path the left subtree
+-- |   will be chosen, otherwise the right subtree.
+subtree :: [Bool] -> BinTree v -> ([v], BinTree v)
+subtree _ BinEmpty = ([], BinEmpty)
+subtree [] t = ([], t)
+subtree (True:xs) t = first (value t :) $ subtree xs (left t)
+subtree (False:xs) t = first (value t :) $ subtree xs (right t)

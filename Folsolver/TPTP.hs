@@ -2,6 +2,7 @@
 
 module Folsolver.TPTP
  ( wrapF
+ , parse
  , parseFormula
  , transformOnInput
  , true, isTrue
