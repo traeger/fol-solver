@@ -48,7 +48,7 @@ tableau0 pick pos formulas t    =
             bt1 = AFormula (nameFun (pos * 2) 1) (Role "theorem") b1 (Annotations (GTerm (GApp (AtomicWord "beta1") [GTerm (GWord (name f))])) NoUsefulInfo)
             bt2 = AFormula (nameFun ((2*pos)+1) 1) (Role "theorem") b2 (Annotations (GTerm (GApp (AtomicWord "beta2") [GTerm (GWord (name f))])) NoUsefulInfo)
         in
-            tableau0 pick (2*pos) (fs++[bt1]) (leaf [bt1])  <# value t #> tableau0 pick (2*pos) (fs++[bt2]) (leaf [bt2])  -- handle beta formulas
+            tableau0 pick (2*pos) (fs++[bt1]) (leaf [bt1])  <# value t #> tableau0 pick (2*pos + 1) (fs++[bt2]) (leaf [bt2])  -- handle beta formulas
     NoType _    -> case stripDoubleNeg $ formula f of
       Just f0     -> 
         let
@@ -97,7 +97,7 @@ proofSATTableau t forms
             wName       = let (AtomicWord x) = name witTPTP in drop 12 x
             cond        = head $ S.toList $ S.filter (((==) (noDoubleNeg ((.~.) $ formula witTPTP))).formula) forms
             term        = wrapF (BinOp (formula cond) (:&:) (formula witTPTP))
-            contradict = AFormula (AtomicWord $ "contradict_"++wName) (Role "theorem") term (Annotations (GTerm (GApp (AtomicWord "contraction") [GTerm (GWord (name cond)), GTerm (GWord $ name witTPTP)])) NoUsefulInfo)
+            contradict = AFormula (AtomicWord $ "contradict_"++wName) (Role "theorem") term (Annotations (GTerm (GApp (AtomicWord "plain") [GTerm (GWord (name cond)), GTerm (GWord $ name witTPTP)])) NoUsefulInfo)
         in
             mkNSATProof $ leaf $ tillWit ++ [witTPTP,contradict]
     | isSATProof proofLeft  = proofLeft
