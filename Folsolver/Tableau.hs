@@ -97,7 +97,7 @@ proofSATTableau t forms
             witTPTP     = head $ filter ((==) $ fromJust witness) $ value t
             tillWit     = takeWhile ((/=) $ fromJust witness) $ value t
             wName       = let (AtomicWord x) = name witTPTP in drop 12 x
-            cond        = head $ S.toList $ S.filter (((==) (noDoubleNeg ((.~.) $ formula witTPTP))).formula) forms
+            cond        = head $ filter (((==) (noDoubleNeg ((.~.) $ formula witTPTP))).formula) ((S.toList forms)++(value t))
             term        = wrapF (BinOp (formula cond) (:&:) (formula witTPTP))
             contradict = AFormula (AtomicWord $ "contradict_"++wName) (Role "theorem") term (Annotations (GTerm (GApp (AtomicWord "plain") [GTerm (GWord (name cond)), GTerm (GWord $ name witTPTP)])) NoUsefulInfo)
         in
