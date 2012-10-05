@@ -5,10 +5,10 @@ module Folsolver.Data.BinTree
  ) where
 
 import Folsolver.TPTP
-import Text.PrettyPrint.HughesPJ as Pretty hiding (empty, first)
+import Text.PrettyPrint.HughesPJ as Pretty hiding (empty)
 import qualified Text.PrettyPrint.HughesPJ as Pretty (empty)
 
-import Control.Arrow (first)
+import qualified Control.Arrow as Arrow (first)
 
 data BinTree v
  = BinNode {left :: BinTree v, value :: v, right :: BinTree v}
@@ -61,5 +61,5 @@ modRootValue f t = left t <# f (value t) #> right t
 subtree :: [Bool] -> BinTree v -> ([v], BinTree v)
 subtree _ BinEmpty = ([], BinEmpty)
 subtree [] t = ([], t)
-subtree (False:xs) t = first (value t :) $ subtree xs (left t)
-subtree (True:xs) t = first (value t :) $ subtree xs (right t)
+subtree (False:xs) t = Arrow.first (value t :) $ subtree xs (left t)
+subtree (True:xs) t = Arrow.first (value t :) $ subtree xs (right t)
