@@ -2,7 +2,7 @@
 
 module Folsolver.Tableau
  ( tableau, checkTableau, proofSATTableau, Proofer(..), simplePick
- , checkT, proofT, subProof ) where
+ , checkT, proofT, subProof, decToBin ) where
 
 import Codec.TPTP
 import Folsolver.Normalform
@@ -138,16 +138,19 @@ proofT = proof (Picker simplePick)
 checkT = check (Picker simplePick)
 
 -- | shows a subtree
-subProof :: Int -> Proof Tableau -> Proof Tableau
-subProof number (t) = mkNSATProof (subProof0 number $ fromNSATProofT t)
+subProof :: Int -> Proof Tableau -> Tableau
+subProof number (t) = (subProof0 number $ fromNSATProofT t)
 subProof0 :: Int -> Tableau -> Tableau
 subProof0 number t = 
   let 
-    (path, t0) = subtree (map (intToBool) $ decToBin number) t
-  in 
-    modRootValue ((concat path) ++ ) t0 where
+    (path, t0) = subtree (tail $ map (intToBool) $ decToBin $ number) t
+  in
+    if number < 2 then t 
+    else modRootValue ((concat path) ++ ) t0 where
       intToBool 0 = False
       intToBool _ = True
-      decToBin x = reverse $ decToBin' x where
-        decToBin' 0 = []
-        decToBin' y = let (a,b) = quotRem y 2 in [b] ++ decToBin' a
+      
+decToBin 0 = [0]
+decToBin x = reverse $ decToBin' x where
+  decToBin' 0 = []
+  decToBin' y = let (a,b) = quotRem y 2 in [b] ++ decToBin' a

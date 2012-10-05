@@ -56,10 +56,10 @@ modRootValue f t = left t <# f (value t) #> right t
 -- | subtree of a given path through the tree
 -- | each element on the path will be returned together with the
 -- | subtree where the path ends
--- |   when a True is find as a first element of a path the left subtree
--- |   will be chosen, otherwise the right subtree.
+-- |   when a False is find as a first element of a path the left subtree
+-- |   will be chosen, otherwise (case True) the right subtree.
 subtree :: [Bool] -> BinTree v -> ([v], BinTree v)
 subtree _ BinEmpty = ([], BinEmpty)
 subtree [] t = ([], t)
-subtree (True:xs) t = first (value t :) $ subtree xs (left t)
-subtree (False:xs) t = first (value t :) $ subtree xs (right t)
+subtree (False:xs) t = first (value t :) $ subtree xs (left t)
+subtree (True:xs) t = first (value t :) $ subtree xs (right t)

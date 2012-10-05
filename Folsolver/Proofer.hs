@@ -29,12 +29,10 @@ class HasPretty (NSATProof p) => Proofer p where
   proofSAT :: p -> Proof p
   -- | whether a proof is a satisfiable proof
   isSATProof :: Proof p -> Bool
-  isSATProof (SAT _) = True
-  isSATProof _       = False
+  isSATProof = isJust . witnessSAT
   -- | whether a proof is a unsatisfiable proof
   isNSATProof :: Proof p -> Bool
-  isNSATProof (NSAT _) = True
-  isNSATProof _        = False
+  isNSATProof = isJust . getNSATProof
   
   -- | minmal definition: NSATProof p, proofSAT
   
@@ -60,6 +58,7 @@ mkSATProof = mkProof
 -- | the witness of a SAT proof, Nothing if the proof was no SAT proof
 witnessSAT :: Proof p -> Maybe ([Formula])
 witnessSAT (SAT formulas) = Just formulas
+witnessSAT (CONTRADICTION formulas) = Just formulas
 witnessSAT _ = Nothing
 -- | like getSATProof but assumes that the proof was a SAT proof
 witnessSAT0 :: Proof p -> [Formula]
@@ -67,6 +66,7 @@ witnessSAT0 = fromJust . witnessSAT
 -- | the nsat proof, Nothing if the proof was no NSAT proof
 getNSATProof :: Proof p -> Maybe (NSATProof p)
 getNSATProof (NSAT nsatp) = Just nsatp
+getNSATProof (TAUTOLOGY nsatp) = Just nsatp
 getNSATProof _ = Nothing
 -- | like getNSATProof but assumes that the proof was a NSAT proof
 getNSATProof0 :: Proof p -> NSATProof p
