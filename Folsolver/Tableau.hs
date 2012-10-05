@@ -30,7 +30,7 @@ tableau0 pick formulas t =
     ab = abFormula f
   in case ab of
     Alpha a1 a2 -> tableau0 pick (fs++[a1,a2]) (leaf $ value t ++ [a1, a2])                        -- handle alpha formulas
-    Beta b1 b2  -> tableau0 pick fs (leaf [b1])  <# value t #> tableau0 pick fs (leaf [b2])        -- handle beta formulas
+    Beta b1 b2  -> tableau0 pick (fs++[b1]) (leaf [b1])  <# value t #> tableau0 pick (fs++[b2]) (leaf [b2])        -- handle beta formulas
     NoType _    -> case unwrapF f of
       (:~:) f0     -> case unwrapF f0 of
         (:~:) f1      -> tableau0 pick (fs++[f1]) (leaf $ value t ++ [f1])                       -- handle double negate
