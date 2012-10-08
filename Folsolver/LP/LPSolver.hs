@@ -67,23 +67,30 @@ splitLPBounds formulas = first concat $ second concat $ unzip $ map q $ zip form
 
 -- | converts a formula to a lp bound
 formulaToBounds :: VarMap -> Formula -> Either Error SparseBound
-formulaToBounds varmap f = case unwrapF f of
-  InfixPred t1 (:=:) t2 -> case (buildTermCoeffMap t1, buildTermCoeffMap t2) of
+formulaToBounds varmap = formulaToBounds0 varmap False
+
+formulaToBounds0 
+  :: VarMap    -- varmap
+  -> Bool      -- negate?
+  -> Formula   -- formula to convert
+  -> Either Error SparseBound
+formulaToBounds0 varmap neg f = case unwrapF f of
+  (:~:) f0              -> formulaToBounds0 varmap (not neg) f0
+  InfixPred t1 op t2 -> case (buildTermCoeffMap t1, buildTermCoeffMap t2) of
     (Left err, _)          -> Left err
     (_, Left err)          -> Left err
-    (Right t10, Right t20) -> Right $ buildFormulaBound varmap "=" t10 t20
+    (Right t10, Right t20) -> case op of
+      (:=:)   -> buildFormulaBound varmap (if neg then "/=" else "==") t10 t20
+      (:!=:)  -> buildFormulaBound varmap (if neg then "==" else "/=") t10 t20
   PredApp op [t1,t2]    -> case (buildTermCoeffMap t1, buildTermCoeffMap t2) of
     (Left err, _)          -> Left err
     (_, Left err)          -> Left err
-    (Right t10, Right t20) -> Right $ buildFormulaBound varmap op t10 t20
-  
-  -- unequal
-  InfixPred t1 (:!=:) t2 -> case (buildTermCoeffMap t1, buildTermCoeffMap t2) of
-    (Left err, _)          -> Left err
-    (_, Left err)          -> Left err
-    (Right t10, Right t20) -> Right $ buildFormulaBound varmap "!=" t10 t20
-    
-  _                     -> Left "formulaToBounds"
+    (Right t10, Right t20) -> case op of
+      ("<=")  -> buildFormulaBound varmap (if neg then ">=" else "<=") t10 t20
+      (">=")  -> buildFormulaBound varmap (if neg then "<=" else ">=") t10 t20
+      _       -> Left $ "formulaToBounds0: unsupported relation " ++ (show op)
+      
+  _                     -> Left "formulaToBounds0"
 
 -- |
 -- |
@@ -91,9 +98,9 @@ formulaToBounds varmap f = case unwrapF f of
 constTerm = V ""
 
 -- | builds a sparse lp bound from two coeffient maps m1, m2 and a relation R
--- | connecting m1 and m2. R is "<=", ">=" or "="
-buildFormulaBound :: VarMap -> AtomicWord -> CoeffMap -> CoeffMap -> SparseBound
-buildFormulaBound varmap "=" c1 c2 =
+-- | connecting m1 and m2. R is "<=", ">=", "==" or "/="
+buildFormulaBound :: VarMap -> AtomicWord -> CoeffMap -> CoeffMap -> Either Error SparseBound
+buildFormulaBound varmap "==" c1 c2 =
   let 
     coeffMap = Map.unionWith (+) (c1) (Map.map negate $ c2)
     b   = fromRational $ fromMaybe 0 $ Map.lookup constTerm coeffMap
@@ -101,7 +108,7 @@ buildFormulaBound varmap "=" c1 c2 =
     as0 = map (first (\v -> fromJust $ Bimap.lookup v varmap)) as
     as1 = map (first fromRational) $ map (\(x,y) -> (y,x)) as0
   in
-    as1 LP.:==: b
+    Right $ as1 LP.:==: b
 buildFormulaBound varmap "<=" c1 c2 =
   let 
     coeffMap = Map.unionWith (+) (c1) (Map.map negate $ c2)
@@ -110,9 +117,10 @@ buildFormulaBound varmap "<=" c1 c2 =
     as0 = map (first (\v -> fromJust $ Bimap.lookup v varmap)) as
     as1 = map (first fromRational) $ map (\(x,y) -> (y,x)) as0
   in
-    as1 LP.:<=: b
+    Right $ as1 LP.:<=: b
 buildFormulaBound varmap ">=" c1 c2 = buildFormulaBound varmap "<=" c2 c1
-buildFormulaBound _ _ _ _ = error "buildFormulaBound"
+buildFormulaBound varmap "/=" c1 c2 = Left "buildFormulaBound: /= is unsupported."
+buildFormulaBound _ _ _ _ = Left "buildFormulaBound"
 
 -- | build a coefficient map where
 -- | each variable is mapped to it's coefficant
