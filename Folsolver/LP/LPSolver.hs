@@ -4,6 +4,7 @@ module Folsolver.LP.LPSolver where
  
 import Codec.TPTP
 import Numeric.LinearProgramming as LP
+import Folsolver.LP.Arithmetic
 
 import qualified Data.Set as Set
 import Data.Set (Set)
@@ -86,9 +87,9 @@ formulaToBounds0 varmap neg f = case unwrapF f of
     (Left err, _)          -> Left err
     (_, Left err)          -> Left err
     (Right t10, Right t20) -> case op of
-      ("<=")  -> buildFormulaBound varmap (if neg then ">=" else "<=") t10 t20
-      (">=")  -> buildFormulaBound varmap (if neg then "<=" else ">=") t10 t20
-      _       -> Left $ "formulaToBounds0: unsupported relation " ++ (show op)
+      (nameLessEq)     -> buildFormulaBound varmap (if neg then ">=" else "<=") t10 t20
+      (nameGreaterEq)  -> buildFormulaBound varmap (if neg then "<=" else ">=") t10 t20
+      _                -> Left $ "formulaToBounds0: unsupported relation " ++ (show op)
       
   _                     -> Left "formulaToBounds0"
 
@@ -99,7 +100,8 @@ constTerm = V ""
 
 -- | builds a sparse lp bound from two coeffient maps m1, m2 and a relation R
 -- | connecting m1 and m2. R is "<=", ">=", "==" or "/="
-buildFormulaBound :: VarMap -> AtomicWord -> CoeffMap -> CoeffMap -> Either Error SparseBound
+-- | (helper method)
+buildFormulaBound :: VarMap -> String -> CoeffMap -> CoeffMap -> Either Error SparseBound
 buildFormulaBound varmap "==" c1 c2 =
   let 
     coeffMap = Map.unionWith (+) (c1) (Map.map negate $ c2)
@@ -135,12 +137,12 @@ buildTermCoeffMap t = case unwrapT t of
 
 -- | join two coeffient maps with a operation
 joinCoeffMaps :: AtomicWord -> CoeffMap -> CoeffMap -> Either Error CoeffMap
-joinCoeffMaps "+" t1 t2 = Right $ Map.unionWith (+) t1 t2
-joinCoeffMaps "-" t1 t2 = Right $ Map.unionWith (+) t1 (Map.map negate t2)
-joinCoeffMaps "*" t1 t2 = if containsVar t1 && containsVar t2
+joinCoeffMaps namePlus t1 t2  = Right $ Map.unionWith (+) t1 t2
+joinCoeffMaps nameMinus t1 t2 = Right $ Map.unionWith (+) t1 (Map.map negate t2)
+joinCoeffMaps nameMult t1 t2  = if containsVar t1 && containsVar t2
   then Left "only linear constraints are supported"
   else Right $ Map.unionWith (*) t1 t2
-joinCoeffMaps "/" t1 t2 = if containsVar t1 && containsVar t2
+joinCoeffMaps nameDiv t1 t2   = if containsVar t1 && containsVar t2
   then Left "only linear constraints are supported"
   else Right $ Map.unionWith (*) t1 (Map.map (1.0 /) t2)
 
