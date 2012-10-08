@@ -37,5 +37,5 @@ infixl 2 <---+>
         parseAn :: [(String,[String])] -> Annotations
         parseAn xs  = Annotations (GList (map pGTerm xs)) NoUsefulInfo
         pGTerm :: (String,[String]) -> GTerm
-        pGTerm (name, []) = GTerm $ GWord (AtomicWord x)
+        pGTerm (name, []) = GTerm $ GWord (AtomicWord name)
         pGTerm (name, args) = GTerm (GApp (AtomicWord name) (map (\x-> GTerm $ GWord $ AtomicWord x) args))
