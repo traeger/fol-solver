@@ -1,14 +1,27 @@
-module Folsolver.LP.LPSolver
- (
- ) where
+{-# OPTIONS_GHC -XOverloadedStrings #-}
+
+module Folsolver.LP.LPSolver where
  
 import Codec.TPTP
-import Data.Set as Set
-import Data.Map as Map
-import Data.Bimap as Bimap
+import Numeric.LinearProgramming as LP
 
-variables :: Term -> Set Var
-variables t = case t of
+import qualified Data.Set as Set
+import Data.Set (Set)
+import qualified Data.Map as Map
+import Data.Map (Map)
+import qualified Data.Bimap as Bimap
+import Data.Bimap (Bimap)
+
+import Data.Maybe (fromMaybe, fromJust)
+import Control.Arrow
+
+type SparseBound = Bound [(Double, Int)]
+type VarMap = Bimap V Int
+type Error = String
+type CoeffMap = (Map V Rational)
+
+variables :: Term -> Set V
+variables t = case unwrapT t of
   Var v              -> Set.singleton v
   FunApp fname terms -> Set.unions $ map variables terms
   _                  -> Set.empty
@@ -17,49 +30,44 @@ variables t = case t of
 termsOfFormula :: Formula -> Set Term
 termsOfFormula formulas =
   let
+    folder :: Formula -> Set Term
     folder = foldF 
-      id                                               -- handle negation
+      (\f0 -> folder f0)                               -- handle negation
       (\_ _ f0 -> folder f0)                           -- handle quantification
       (\f0 _ f1 -> Set.union (folder f0) (folder f1))  -- handle bin op
       (\t0 _ t1 -> Set.fromList [t0, t1])              -- handle equality/inequality
       (\_ ts -> Set.fromList ts)                       -- handle predicates
   in folder formulas
 
-type VarMap = BiMap Var Int
-type Error = String
-
 -- | create a map of all variables in a list of terms
 -- | to an integer which identifies the variable (and visa versa).
 buildVarMap :: [Term] -> VarMap
-buildVarMap formulas = 
+buildVarMap terms = 
   let
-    varset = Set.unions $ map variables term
+    varset = Set.unions $ map variables terms
     vars = Set.toList $ varset
   in 
-    Map.fromList $ take (length vars) $ zip vars [1..]
+    Bimap.fromList $ take (length vars) $ zip vars [1..]
     
 -- | converts a list of formula to a lp-constraints
-toLPConstraints :: [Formula] -> Either Error Constraints
-toLPConstraints formulas = 
+toLPBounds :: [Formula] -> [Either Error SparseBound]
+toLPBounds formulas = 
   let
     terms = Set.unions $ map termsOfFormula formulas
-    varmap = buildVarMap terms
-  in case catchLeft (map (formulaToBounds varmap) formulas) of
-    Left err     -> Left err
-    Right bounds -> Right $ Sparse bounds
-    
--- maps to the Right component
--- returns the first Left if one is found
-catchLeft :: [Either b a] -> Either b [a]
-catchLeft [] = []
-catchLeft (Left err:_)   = Left err
-catchLeft (Right e:xs) = case catchLeft xs of
-  Left  err -> Left err
-  Right es  -> Right $ e:es
+    varmap = buildVarMap (Set.toList terms)
+  in map (formulaToBounds varmap) formulas
+
+-- | splits a list of formulas into a list of lp-bounds which are
+-- | the linear system interpretation of thus formulas and a list
+-- | of formulas which can't be converted to a lp-bound.
+splitLPBounds :: [Formula] -> ([Formula], [SparseBound])
+splitLPBounds formulas = first concat $ second concat $ unzip $ map q $ zip formulas (toLPBounds formulas) where
+  q (f, Left _)  = ([f],[])
+  q (_, Right b) = ([],[b])
 
 -- | converts a formula to a lp bound
-formulaToBounds :: VarMap -> Formula -> Either Error Bound
-formulaToBounds varmap f = case unwrap f of
+formulaToBounds :: VarMap -> Formula -> Either Error SparseBound
+formulaToBounds varmap f = case unwrapF f of
   InfixPred t1 (:=:) t2 -> case (buildTermCoeffMap t1, buildTermCoeffMap t2) of
     (Left err, _)          -> Left err
     (_, Left err)          -> Left err
@@ -68,51 +76,59 @@ formulaToBounds varmap f = case unwrap f of
     (Left err, _)          -> Left err
     (_, Left err)          -> Left err
     (Right t10, Right t20) -> Right $ buildFormulaBound varmap op t10 t20
+  
+  -- unequal
+  InfixPred t1 (:!=:) t2 -> case (buildTermCoeffMap t1, buildTermCoeffMap t2) of
+    (Left err, _)          -> Left err
+    (_, Left err)          -> Left err
+    (Right t10, Right t20) -> Right $ buildFormulaBound varmap "!=" t10 t20
+    
   _                     -> Left "formulaToBounds"
 
 -- |
 -- |
 -- | building of coeffience maps and lp bounds
 constTerm = V ""
-type CoeffMap = (Map V Rational)
 
-buildFormulaBound :: VarMap -> String -> CoeffMap -> CoeffMap -> Bound
+-- | builds a sparse lp bound from two coeffient maps m1, m2 and a relation R
+-- | connecting m1 and m2. R is "<=", ">=" or "="
+buildFormulaBound :: VarMap -> AtomicWord -> CoeffMap -> CoeffMap -> SparseBound
 buildFormulaBound varmap "=" c1 c2 =
   let 
-    coeffMap = Map.unionWith (+) (c1) (Map.map (-1 *) $ c2)
-    b   = fromMaybe 0 $ lookup constTerm coeffMap
-    as  = Map.toList $ delete constTerm coeffMap
-    as0 = map (first (\v -> fromJust $ Map.lookup v varmap)) as
-    as1 = map (\(x,y) -> (y,x)) as0
+    coeffMap = Map.unionWith (+) (c1) (Map.map negate $ c2)
+    b   = fromRational $ fromMaybe 0 $ Map.lookup constTerm coeffMap
+    as  = Map.toList $ Map.delete constTerm coeffMap
+    as0 = map (first (\v -> fromJust $ Bimap.lookup v varmap)) as
+    as1 = map (first fromRational) $ map (\(x,y) -> (y,x)) as0
   in
-    as1 :==: b
+    as1 LP.:==: b
 buildFormulaBound varmap "<=" c1 c2 =
   let 
-    coeffMap = Map.unionWith (+) (Map.map (-1 *) $ c1) (c2)
-    b   = fromMaybe 0 $ lookup constTerm coeffMap
-    as  = Map.toList $ delete constTerm coeffMap
-    as0 = map (first (\v -> fromJust $ Map.lookup v varmap)) as
-    as1 = map (\(x,y) -> (y,x)) as0
+    coeffMap = Map.unionWith (+) (c1) (Map.map negate $ c2)
+    b   = fromRational $ fromMaybe 0 $ Map.lookup constTerm coeffMap
+    as  = Map.toList $ Map.delete constTerm coeffMap
+    as0 = map (first (\v -> fromJust $ Bimap.lookup v varmap)) as
+    as1 = map (first fromRational) $ map (\(x,y) -> (y,x)) as0
   in
-    as1 :<=: b
+    as1 LP.:<=: b
 buildFormulaBound varmap ">=" c1 c2 = buildFormulaBound varmap "<=" c2 c1
 buildFormulaBound _ _ _ _ = error "buildFormulaBound"
 
--- build a coefficient map where
--- each variable is mapped to it's coefficant
+-- | build a coefficient map where
+-- | each variable is mapped to it's coefficant
 buildTermCoeffMap :: Term -> Either Error CoeffMap
-buildTermCoeffMap t = case unwrap t of
+buildTermCoeffMap t = case unwrapT t of
   Var v             -> Right $ Map.singleton v 1
   NumberLitTerm r   -> Right $ Map.singleton constTerm r
   FunApp op [t1,t2] -> case (buildTermCoeffMap t1, buildTermCoeffMap t2) of
     (Left err, _)          -> Left err
     (_, Left err)          -> Left err
-    (Right t10, Right t20) -> joinTermCoeffMaps op t10 t20
-    _                      -> Left $ show t ++ " not supported"
+    (Right t10, Right t20) -> joinCoeffMaps op t10 t20
 
+-- | join two coeffient maps with a operation
 joinCoeffMaps :: AtomicWord -> CoeffMap -> CoeffMap -> Either Error CoeffMap
 joinCoeffMaps "+" t1 t2 = Right $ Map.unionWith (+) t1 t2
-joinCoeffMaps "-" t1 t2 = Right $ Map.unionWith (+) t1 (Map.map (-1 *) t2)
+joinCoeffMaps "-" t1 t2 = Right $ Map.unionWith (+) t1 (Map.map negate t2)
 joinCoeffMaps "*" t1 t2 = if containsVar t1 && containsVar t2
   then Left "only linear constraints are supported"
   else Right $ Map.unionWith (*) t1 t2
@@ -120,6 +136,19 @@ joinCoeffMaps "/" t1 t2 = if containsVar t1 && containsVar t2
   then Left "only linear constraints are supported"
   else Right $ Map.unionWith (*) t1 (Map.map (1.0 /) t2)
 
--- whether a variable coefficient map contains a variable
-containsVar :: CoeffMap
-containsVar m = if (member constTerm) then size m >= 2 else size m >= 1
+-- | whether a variable coefficient map contains a variable
+containsVar :: CoeffMap -> Bool
+containsVar m = if (Map.member constTerm m) then Map.size m >= 2 else Map.size m >= 1
+
+--
+-- helpers
+--
+
+-- | maps to the Right component
+-- | returns the first Left if one is found
+catchLeft :: [Either b a] -> Either b [a]
+catchLeft [] = Right []
+catchLeft (Left err:_)   = Left err
+catchLeft (Right e:xs) = case catchLeft xs of
+  Left  err -> Left err
+  Right es  -> Right $ e:es

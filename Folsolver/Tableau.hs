@@ -1,7 +1,7 @@
 {-# OPTIONS_GHC -XTypeSynonymInstances -XMultiParamTypeClasses -XFlexibleInstances -XTypeFamilies #-}
 
 module Folsolver.Tableau
- ( tableau, checkTableau, proofSATTableau, Proofer(..), simplePick
+ ( tableau, checkTableau, proofSATTableau, Proofer(..), Picker(..), simplePick
  , checkT, proofT, subProof, decToBin ) where
 
 import Codec.TPTP
