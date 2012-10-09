@@ -1,7 +1,7 @@
 module Folsolver.Data.BinTreeS
  ( BinTreeS(..)
  , empty, leaf, (<#), (#>), (<|>)
- , subtree, modRootValue
+ , subtree, cuttree, modRootValue
  ) where
 
 import Folsolver.TPTP
@@ -74,3 +74,9 @@ subtree [] t = ([], t)
 subtree x (SNode t v)   = Arrow.first (v :) $  subtree x t
 subtree (False:xs) t    = Arrow.first (value t :) $ subtree xs (left t)
 subtree (True:xs) t     = Arrow.first (value t :) $ subtree xs (right t)
+
+cuttree :: Int -> BinTreeS v -> BinTreeS v
+cuttree 0 _ = BinEmpty
+cuttree n BinEmpty = BinEmpty
+cuttree n (SNode t v) = (SNode (cuttree (n-1) t) v)
+cuttree n (BinNode t0 v t1) = (cuttree (n-1) t0) <# v #> (cuttree (n-1) t1)
