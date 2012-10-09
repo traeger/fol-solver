@@ -1,0 +1,1 @@
+fof(toCheck,conjecture,?[X]:(![Y,Z,W]:((p(Y) | q(Z) | r(W)) => (p(X) | q(X) | r(X))))).

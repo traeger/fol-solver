@@ -1,0 +1,1 @@
+fof(toCheck,conjecture,(![X,Y]:r(g(X,a),g(b,Y)))=>(?[U,V]:r(U,V))).
