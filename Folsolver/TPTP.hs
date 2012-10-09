@@ -10,7 +10,10 @@ module Folsolver.TPTP
  , stripDoubleNeg, noDoubleNeg
  , HasPretty(..), Formula(..)
  , rnd, rndIO 
+ , HasPretty(..)
  ) where
+
+import Folsolver.HasPretty
 
 import Codec.TPTP
 import Data.Functor.Identity
@@ -18,6 +21,12 @@ import System.Random
 import System.IO.Unsafe
 import Data.Maybe (fromMaybe)
 import Data.List (intercalate)
+
+import qualified Data.Set as Set
+import qualified Data.Map as Map
+import Data.Set (Set)
+import Data.Map (Map)
+
 import Text.PrettyPrint.HughesPJ as Pretty
 
 -- wrap F around a Formula0 using Identity
@@ -25,11 +34,9 @@ import Text.PrettyPrint.HughesPJ as Pretty
 wrapF :: Formula0 (T Identity) (F Identity) -> F Identity
 wrapF e = F $ Identity e
 
-class HasPretty a where
-  pretty :: a -> Pretty.Doc
-
-instance (HasPretty a) => HasPretty [a] where
-  pretty as = Pretty.brackets $ Pretty.cat $ (Pretty.punctuate Pretty.comma) $ map pretty as
+-- pretty print of a term
+instance HasPretty Term where
+  pretty f = Pretty.text $ (toTPTP f) ""
 
 -- pretty print of a formula
 instance HasPretty Formula where
@@ -38,6 +45,12 @@ instance HasPretty Formula where
 -- pretty to print TPTP
 instance HasPretty TPTP_Input where
     pretty f = Pretty.text $ (toTPTP f) ""
+
+instance HasPretty V where
+  pretty (V v) = Pretty.text "V(" <> (Pretty.text $ v) <> Pretty.text ")"
+
+instance HasPretty AtomicWord where
+  pretty (AtomicWord s) = Pretty.text $ s
 
 transformOnInput :: (Formula -> Formula) -> TPTP_Input -> TPTP_Input
 transformOnInput fun (AFormula name role form anno) = AFormula name role (fun form) anno

@@ -1,0 +1,2 @@
+fof(ax1,axiom,$lessereq(X,Y)).
+fof(con,conjecture,$lessereq($sum(X,1),Y)).

@@ -1,8 +1,13 @@
 {-# OPTIONS_GHC -XOverloadedStrings #-}
 
-module Folsolver.LP.LPSolver where
+module Folsolver.LP.LPSolver
+ ( module Folsolver.LP.Arithmetic
+ , mkVarMap, mkLPBounds, solveS, solve
+ , solveWithBounds
+ ) where
  
 import Codec.TPTP
+import Folsolver.TPTP
 import Numeric.LinearProgramming as LP
 import Folsolver.LP.Arithmetic
 
@@ -20,51 +25,53 @@ type SparseBound = Bound [(Double, Int)]
 type VarMap = Bimap V Int
 type Error = String
 type CoeffMap = (Map V Rational)
-
-variables :: Term -> Set V
-variables t = case unwrapT t of
-  Var v              -> Set.singleton v
-  FunApp fname terms -> Set.unions $ map variables terms
-  _                  -> Set.empty
-  
--- | get terms
-termsOfFormula :: Formula -> Set Term
-termsOfFormula formulas =
-  let
-    folder :: Formula -> Set Term
-    folder = foldF 
-      (\f0 -> folder f0)                               -- handle negation
-      (\_ _ f0 -> folder f0)                           -- handle quantification
-      (\f0 _ f1 -> Set.union (folder f0) (folder f1))  -- handle bin op
-      (\t0 _ t1 -> Set.fromList [t0, t1])              -- handle equality/inequality
-      (\_ ts -> Set.fromList ts)                       -- handle predicates
-  in folder formulas
-
+      
 -- | create a map of all variables in a list of terms
 -- | to an integer which identifies the variable (and visa versa).
-buildVarMap :: [Term] -> VarMap
-buildVarMap terms = 
+mkVarMap :: (HasVar a) => a -> VarMap
+mkVarMap a = 
   let
-    varset = Set.unions $ map variables terms
-    vars = Set.toList $ varset
+    vars = Set.toList $ variables a
   in 
     Bimap.fromList $ take (length vars) $ zip vars [1..]
     
 -- | converts a list of formula to a lp-constraints
-toLPBounds :: [Formula] -> [Either Error SparseBound]
-toLPBounds formulas = 
+mkLPBounds :: [Formula] -> [Either Error SparseBound]
+mkLPBounds formulas = 
   let
-    terms = Set.unions $ map termsOfFormula formulas
-    varmap = buildVarMap (Set.toList terms)
+    varmap = mkVarMap formulas
   in map (formulaToBounds varmap) formulas
 
 -- | splits a list of formulas into a list of lp-bounds which are
 -- | the linear system interpretation of thus formulas and a list
 -- | of formulas which can't be converted to a lp-bound.
 splitLPBounds :: [Formula] -> ([Formula], [SparseBound])
-splitLPBounds formulas = first concat $ second concat $ unzip $ map q $ zip formulas (toLPBounds formulas) where
+splitLPBounds formulas = first concat $ second concat $ unzip $ map q $ zip formulas (mkLPBounds formulas) where
   q (f, Left _)  = ([f],[])
   q (_, Right b) = ([],[b])
+  
+-- | solves a lp of bounds
+solveWithBounds :: VarMap -> [SparseBound] -> Solution
+solveWithBounds varmap bound = simplex (Minimize $ replicate (Bimap.size varmap) 0) (Sparse bound) []
+
+-- | solves a lp of formulas, give the solution to the problem
+solveS :: [Formula] -> Solution
+solveS formulas = 
+  let 
+    varmap = mkVarMap formulas
+  in case (catchLeft $ mkLPBounds formulas) of
+    Left err     -> error err
+    Right bounds -> simplex (Minimize $ replicate (Bimap.size varmap) 0) (Sparse bounds) []
+    
+-- | whether the lp of formulas have a solution
+solve :: [Formula] -> Bool
+solve formulas = case solveS formulas of
+  Undefined    -> error "LP solution is Undefined."
+  Feasible _   -> True
+  Infeasible _ -> False
+  NoFeasible   -> False
+  Optimal _    -> True
+  Unbounded    -> True
 
 -- | converts a formula to a lp bound
 formulaToBounds :: VarMap -> Formula -> Either Error SparseBound
@@ -86,11 +93,10 @@ formulaToBounds0 varmap neg f = case unwrapF f of
   PredApp op [t1,t2]    -> case (buildTermCoeffMap t1, buildTermCoeffMap t2) of
     (Left err, _)          -> Left err
     (_, Left err)          -> Left err
-    (Right t10, Right t20) -> case op of
-      (nameLessEq)     -> buildFormulaBound varmap (if neg then ">=" else "<=") t10 t20
-      (nameGreaterEq)  -> buildFormulaBound varmap (if neg then "<=" else ">=") t10 t20
-      _                -> Left $ "formulaToBounds0: unsupported relation " ++ (show op)
-      
+    (Right t10, Right t20) -> case () of 
+      _ | op == nameLessEq     -> buildFormulaBound varmap (if neg then ">=" else "<=") t10 t20
+        | op == nameGreaterEq  -> buildFormulaBound varmap (if neg then "<=" else ">=") t10 t20
+        | otherwise            -> Left $ "formulaToBounds0: unsupported relation " ++ (show op)
   _                     -> Left "formulaToBounds0"
 
 -- |
@@ -110,7 +116,8 @@ buildFormulaBound varmap "==" c1 c2 =
     as0 = map (first (\v -> fromJust $ Bimap.lookup v varmap)) as
     as1 = map (first fromRational) $ map (\(x,y) -> (y,x)) as0
   in
-    Right $ as1 LP.:==: b
+    Right $ as1 LP.:==: (negate b)  -- we have to negate b, since b is on the right side
+                                    -- of the equation
 buildFormulaBound varmap "<=" c1 c2 =
   let 
     coeffMap = Map.unionWith (+) (c1) (Map.map negate $ c2)
@@ -119,7 +126,8 @@ buildFormulaBound varmap "<=" c1 c2 =
     as0 = map (first (\v -> fromJust $ Bimap.lookup v varmap)) as
     as1 = map (first fromRational) $ map (\(x,y) -> (y,x)) as0
   in
-    Right $ as1 LP.:<=: b
+    Right $ as1 LP.:<=: (negate b)  -- we have to negate b, since b is on the right side
+                                    -- of the equation
 buildFormulaBound varmap ">=" c1 c2 = buildFormulaBound varmap "<=" c2 c1
 buildFormulaBound varmap "/=" c1 c2 = Left "buildFormulaBound: /= is unsupported."
 buildFormulaBound _ _ _ _ = Left "buildFormulaBound"
@@ -137,15 +145,20 @@ buildTermCoeffMap t = case unwrapT t of
 
 -- | join two coeffient maps with a operation
 joinCoeffMaps :: AtomicWord -> CoeffMap -> CoeffMap -> Either Error CoeffMap
-joinCoeffMaps namePlus t1 t2  = Right $ Map.unionWith (+) t1 t2
-joinCoeffMaps nameMinus t1 t2 = Right $ Map.unionWith (+) t1 (Map.map negate t2)
-joinCoeffMaps nameMult t1 t2  = if containsVar t1 && containsVar t2
-  then Left "only linear constraints are supported"
-  else Right $ Map.unionWith (*) t1 t2
-joinCoeffMaps nameDiv t1 t2   = if containsVar t1 && containsVar t2
-  then Left "only linear constraints are supported"
-  else Right $ Map.unionWith (*) t1 (Map.map (1.0 /) t2)
-
+joinCoeffMaps name t1 t2
+  | name == namePlus  = 
+    Right $ Map.unionWith (+) t1 t2
+  | name == nameMinus = 
+    Right $ Map.unionWith (+) t1 (Map.map negate t2)
+  | name == nameMult  = 
+    if containsVar t1 && containsVar t2
+    then Left "only linear constraints are supported"
+    else Right $ Map.unionWith (*) t1 t2
+  | name == nameDiv   = 
+    if containsVar t1 && containsVar t2
+    then Left "only linear constraints are supported"
+    else Right $ Map.unionWith (*) t1 (Map.map (1.0 /) t2)
+                        
 -- | whether a variable coefficient map contains a variable
 containsVar :: CoeffMap -> Bool
 containsVar m = if (Map.member constTerm m) then Map.size m >= 2 else Map.size m >= 1
