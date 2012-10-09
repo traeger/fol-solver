@@ -94,9 +94,12 @@ formulaToBounds0 varmap neg f = case unwrapF f of
     (Left err, _)          -> Left err
     (_, Left err)          -> Left err
     (Right t10, Right t20) -> case () of 
-      _ | op == nameLessEq     -> buildFormulaBound varmap (if neg then ">=" else "<=") t10 t20
-        | op == nameGreaterEq  -> buildFormulaBound varmap (if neg then "<=" else ">=") t10 t20
-        | otherwise            -> Left $ "formulaToBounds0: unsupported relation " ++ (show op)
+      _ | not neg && op == nameLesserEq   -> buildFormulaBound varmap "<=" t10 t20
+        | not neg && op == nameGreaterEq  -> buildFormulaBound varmap ">=" t10 t20
+        |     neg && op == nameLesser     -> buildFormulaBound varmap ">=" t10 t20
+        |     neg && op == nameGreater    -> buildFormulaBound varmap "<=" t10 t20
+        | otherwise                       -> Left $ "formulaToBounds0: unsupported relation " 
+                                             ++ (if neg then "not" else "") ++ "(" ++(show $ pretty op) ++ ")"
   _                     -> Left "formulaToBounds0"
 
 -- |

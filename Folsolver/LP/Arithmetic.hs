@@ -38,21 +38,33 @@ hasFunName name t = case unwrapT t of
   FunApp op _ -> op == name
 
 -- realations
-(.=>),(.<=),(.=),(./=) :: Term -> Term -> Formula
+(.=>),(.<=),(.>),(.<),(.=),(./=) :: Term -> Term -> Formula
+t1 .> t2  = wrapF $ PredApp nameGreater [t1,t2]
+t1 .< t2  = wrapF $ PredApp nameLesser [t1,t2]
 t1 .=> t2 = wrapF $ PredApp nameGreaterEq [t1,t2]
-t1 .<= t2 = wrapF $ PredApp nameLessEq [t1,t2]
+t1 .<= t2 = wrapF $ PredApp nameLesserEq [t1,t2]
 t1 .=  t2 = wrapF $ InfixPred t1 (:=:) t2
 t1 ./= t2 = wrapF $ InfixPred t1 (:!=:) t2
 
-nameLessEq, nameGreaterEq :: AtomicWord
-nameLessEq = "$lessereq"
+nameLesser, nameGreater, nameLesserEq, nameGreaterEq :: AtomicWord
+nameLesser = "$lesser"
+nameGreater = "$greater"
+nameLesserEq = "$lessereq"
 nameGreaterEq = "$greatereq"
 
-isLessEq, isGreaterEq, isEq, isNeq :: Formula -> Bool
-isLessEq f = case unwrapF f of
-  PredApp name _ -> name == nameLessEq
+isLesser, isGreater, isLesserEq, isGreaterEq, isEq, isNeq :: Formula -> Bool
+isLesser f = case unwrapF f of
+  PredApp name _ -> name == nameLesser
+  _              -> False
+isGreater f = case unwrapF f of
+  PredApp name _ -> name == nameGreater
+  _              -> False
+isLesserEq f = case unwrapF f of
+  PredApp name _ -> name == nameLesserEq
+  _              -> False
 isGreaterEq f = case unwrapF f of
   PredApp name _ -> name == nameGreaterEq
+  _              -> False
 isEq f = case unwrapF f of
   InfixPred _ (:=:) _ -> True
   _                   -> False
@@ -60,7 +72,8 @@ isNeq f = case unwrapF f of
   InfixPred _ (:!=:) _ -> True
   _                    -> False
 
-relationOpNames = [nameLessEq, nameGreaterEq]
+relationOpNames = [nameLesserEq, nameGreaterEq]
+relationOpNamesNeg = [nameLesser, nameGreater]
 
 -- whether a formula is arithmetic
 isArithmetic :: Formula -> Bool
@@ -78,10 +91,9 @@ isArithmeticFormula0 neg f = case unwrapF f of
   (:~:) f0               -> isArithmeticFormula0 (not neg) f0
   InfixPred t1 (:=:) t2  -> not neg && (isArithmeticTerm t1) && (isArithmeticTerm t2)
   InfixPred t1 (:!=:) t2 -> neg && (isArithmeticTerm t1) && (isArithmeticTerm t2)
-  PredApp op [t1,t2] -> 
-       (elem op relationOpNames)
-    && (isArithmeticTerm t1)
-    && (isArithmeticTerm t2)
+  PredApp op [t1,t2]
+    | not neg   -> (elem op relationOpNames) && (isArithmeticTerm t1) && (isArithmeticTerm t2)
+    | otherwise -> (elem op relationOpNamesNeg) && (isArithmeticTerm t1) && (isArithmeticTerm t2)
   _                      -> False
 
 -- whether a term is arithmetic

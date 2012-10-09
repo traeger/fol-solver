@@ -1,0 +1,3 @@
+fof(ax1,axiom,X=3).
+fof(ax1,axiom,Y=5).
+fof(con,conjecture,$lesser($sum(X,1),Y)).

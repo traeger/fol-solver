@@ -1,6 +1,6 @@
 module Folsolver.Examples
  ( readExample, readExampleUnsafe
- , axiom1, axiom2, axiom3, f, uninterfunc, arithmetic1
+ , axiom1, axiom2, axiom3, f, uninterfunc, arithmetic1, arithmetic2
  ) where
 
 import System.IO
@@ -22,3 +22,4 @@ uninterfunc = readExampleUnsafe "Data/Examples/uninterfunc.tptp"
 f = readExampleUnsafe "Data/Examples/f.tptp"
 
 arithmetic1 = readExampleUnsafe "Data/Examples/arithmetic1.tptp"
+arithmetic2 = readExampleUnsafe "Data/Examples/arithmetic2.tptp"
