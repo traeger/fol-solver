@@ -1,11 +1,11 @@
-module Folsolver.Main 
+module Main 
  ( module Folsolver.TPTP
  , module Folsolver.Proofer
- , module Folsolver.Tableau
+ , module Folsolver.FOTableau
  , module Folsolver.Examples
  ) where
 
 import Folsolver.TPTP
 import Folsolver.Proofer
-import Folsolver.Tableau
+import Folsolver.FOTableau
 import Folsolver.Examples
