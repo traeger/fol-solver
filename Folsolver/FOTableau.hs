@@ -22,6 +22,9 @@ import Text.PrettyPrint.HughesPJ as Pretty
 
 type FOForm = (TPTP_Input,[V])
 
+maxNodeLength :: Int
+maxNodeLength = 20
+
 fofformula :: FOForm -> TPTP_Input
 fofformula (x,_)       = x
 
@@ -53,57 +56,73 @@ tableau0
   -> FOTableau    -- kurzzeitiges Tableau (brauchen wir fuer mehrere alpha schritte)
   -> FOTableau
 tableau0 pick pos [] [] t           = t
-tableau0 pick pos [] ((x,vars):xs) t  = case reduction $ formula x of
-    (GammaR form var)
-        ->
-            let
-                (AtomicWord oldName)    = name x
-                newFunName  = "genFunction_"++show pos++"_"++(show $ length $ value t)
-                varName = V $ "FreeVar_"++show pos++"_"++(show $ length $ value t)
-                rename  = variableRename var (T $ Identity $ Var varName) form
-                next    = mkTPTP newFunName "plain" rename [("gamma",[oldName])]
-            in 
-                tableau0 pick pos [(next,varName:vars)] (xs++[(x,vars)]) t
-    (DeltaR form var) 
-        -> 
-            let
-                (AtomicWord oldName)    = name x
-                newFunName  = "genFunction_"++show pos++"_"++(show $ length $ value t)
-                skolName    = AtomicWord $ "skolFun_"++show pos++"_"++(show $ length $ value t)
-                skolFun     = T $ Identity $ FunApp skolName (map (\x -> (T $ Identity $ Var x)) vars)
-                rename      = variableRename var skolFun form
-                next        = mkTPTP newFunName "plain" rename [("delta",[oldName])]
-            in
-                tableau0 pick pos [(next,vars)] xs t
-
-    _                   -> error "Should not occure"
-
 tableau0 pick pos formulas quans t    = 
   let
     nameFun p q = "genFunction_"++(show p)++"_"++(show q)
     ((f,v),fs,qs) = pick formulas quans
   in case reduction $ formula f of
-    AlphaR a1 a2 -> 
-        let
-            at1 = mkTPTP (nameFun pos $ (length $ value t)) "plain" a1 [("alpha1",[show.name $ f])]
-            at2 = mkTPTP (nameFun pos $ (length $ value t)+1) "plain" a2 [("alpha2",[show.name $ f])]
-        in
-            tableau0 pick pos (fs++[(at1,v),(at2,v)]) qs (leaf $ value t ++ [at1, at2])           -- handle alpha formulas
-    BetaR b1 b2  -> 
-        let
-            bt1 = mkTPTP (nameFun (pos * 2) 1) "plain" b1 [("beta1",[show.name $ f])]
-            bt2 = mkTPTP (nameFun ((2*pos)+1) 1) "plain" b2 [("beta2",[show.name $ f])]
-            t1 = tableau0 pick (2*pos) (fs++[(bt1,v)]) qs (leaf [bt1])
-            t2 = tableau0 pick (2*pos + 1) (fs++[(bt2,v)]) qs (leaf [bt2])
-        in
-             t1  <# value t #> t2
-    DNegate n   ->
-        let
-            f1 = mkTPTP (nameFun pos $ (length $ value t)) "plain" n [("negate",[show.name $ f])]
-        in
-            tableau0 pick pos (fs++[(f1,v)]) qs (leaf $ value t ++ [f1])                    -- handle double negate
-    AtomR _     -> tableau0 pick pos fs qs t
-    _           -> tableau0 pick pos fs ((f,v):qs) t
+    AlphaR a1 a2 
+        -> 
+            let
+                at1 = mkTPTP (nameFun pos $ (length $ value t)) "plain" a1 [("alpha1",[show.name $ f])]
+                at2 = mkTPTP (nameFun pos $ (length $ value t)+1) "plain" a2 [("alpha2",[show.name $ f])]
+            in
+                if (length $ value t) > maxNodeLength
+                then
+                    tableau0 pick pos (fs++[(at1,v),(at2,v)]) qs (leaf $ value t ++ [at1, at2])
+                else
+                    value t <|> tableau0 pick (2*pos) (fs++[(at1,v),(at2,v)]) qs (leaf [at1,at2]) 
+    BetaR b1 b2  
+        -> 
+            let
+                bt1 = mkTPTP (nameFun (pos * 2) 1) "plain" b1 [("beta1",[show.name $ f])]
+                bt2 = mkTPTP (nameFun ((2*pos)+1) 1) "plain" b2 [("beta2",[show.name $ f])]
+                t1 = tableau0 pick (2*pos) (fs++[(bt1,v)]) qs (leaf [bt1])
+                t2 = tableau0 pick (2*pos + 1) (fs++[(bt2,v)]) qs (leaf [bt2])
+            in
+                t1  <# value t #> t2
+    DNegate n   
+        ->
+            let
+                f1 = mkTPTP (nameFun pos $ (length $ value t)) "plain" n [("negate",[show.name $ f])]
+            in
+                if (length $ value t) > maxNodeLength
+                then
+                    tableau0 pick pos (fs++[(f1,v)]) qs (leaf $ value t ++ [f1])                    -- handle double negate
+                else
+                    value t <|> tableau0 pick (2*pos) (fs++[(f1,v)]) qs (leaf [f1])
+    AtomR _     
+        -> tableau0 pick pos fs qs t
+    GammaR form var
+        ->
+            let
+                (AtomicWord oldName)    = name f
+                newFunName  = "genFunction_"++show pos++"_"++(show $ length $ value t)
+                varName = V $ "FreeVar_"++show pos++"_"++(show $ length $ value t)
+                rename  = variableRename var (T $ Identity $ Var varName) form
+                next    = mkTPTP newFunName "plain" rename [("gamma",[oldName])]
+            in 
+                if (length $ value t) > maxNodeLength
+                then
+                    tableau0 pick pos (fs++[(next,varName:v)]) (qs++[(f,v)]) t
+                else
+                    value t <|> tableau0 pick (2*pos) (fs++[(next,varName:v)]) (qs++[(f,v)]) (leaf [next])
+    DeltaR form var 
+        -> 
+            let
+                (AtomicWord oldName)    = name f
+                newFunName  = "genFunction_"++show pos++"_"++(show $ length $ value t)
+                skolName    = AtomicWord $ "skolFun_"++show pos++"_"++(show $ length $ value t)
+                skolFun     = T $ Identity $ FunApp skolName (map (\x -> (T $ Identity $ Var x)) v)
+                rename      = variableRename var skolFun form
+                next        = mkTPTP newFunName "plain" rename [("delta",[oldName])]
+            in
+                if (length $ value t) > maxNodeLength
+                then
+                    tableau0 pick pos (fs++[(next,v)]) qs t
+                else
+                    value t <|> tableau0 pick (2*pos) (fs++[(next,v)]) qs (leaf [next])
+  --  _   -> tableau0 pick pos fs qs t
 {-
  - | This function iterates over the tableau and checks
  - | whether the negate of a new formula already occured.
@@ -147,8 +166,9 @@ proofSATFOTableau (SNode t v) forms
         let
             witTPTP     = head $ filter ((==) $ fromJust witness) $ v
             tillWit     = takeWhile ((/=) $ fromJust witness) $ v
-            wName       = let (AtomicWord x) = name witTPTP in drop 12 x
-            contradict  = mkTPTP ("contradict_"++wName) "plain" false [("contradiction_of",[show $ name witTPTP])]
+            (AtomicWord fName) = name witTPTP
+            wName       = drop 12 fName
+            contradict  = mkTPTP ("contradict_"++wName) "plain" false [("contradiction_of",[fName])]
         in
             mkNSATProof $ leaf $ tillWit ++ [witTPTP,contradict]
     | isSATProof subTree    = subTree
@@ -162,9 +182,10 @@ proofSATFOTableau t forms
         let
             witTPTP     = head $ filter ((==) $ fromJust witness) $ value t
             tillWit     = takeWhile ((/=) $ fromJust witness) $ value t
-            wName       = let (AtomicWord x) = name witTPTP in drop 12 x
+            (AtomicWord fName) = name witTPTP
+            wName       = drop 12 fName
             -- cond        = head $ filter (((==) (noDoubleNeg ((.~.) $ formula witTPTP))).formula) ((S.toList forms)++(value t))
-            contradict = mkTPTP ("contradict_"++wName) "plain" false [("contradiction_of",[show $ name witTPTP])]
+            contradict = mkTPTP ("contradict_"++wName) "plain" false [("contradiction_of",[fName])]
         in
             mkNSATProof $ leaf $ tillWit ++ [witTPTP,contradict]
     | isSATProof proofLeft  = proofLeft
