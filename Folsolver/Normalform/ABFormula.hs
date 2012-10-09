@@ -3,6 +3,7 @@ module Folsolver.Normalform.ABFormula
  , isAlpha, isBeta, isLiteral
  , DGFormula(..), RedFormula(..)
  , reduction, dgFormula
+ , isSimple, isQuant, isAlphaFormula
  ) where
 
 import Codec.TPTP
@@ -113,6 +114,11 @@ isSimple x   = case reduction x of
 
 isQuant :: Formula -> Bool
 isQuant = not . isSimple
+
+isAlphaFormula :: Formula -> Bool
+isAlphaFormula x = case reduction x of
+    (AlphaR _ _)    -> True
+    _               -> False
 
 reduction :: Formula -> RedFormula
 reduction f =

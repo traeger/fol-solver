@@ -1,4 +1,4 @@
-module Folsolver.Data.TPTP_gen where
+module Folsolver.Data.TPTP_Gen where
 
 import Codec.TPTP
 import Folsolver.TPTP(false)

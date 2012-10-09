@@ -1,9 +1,9 @@
 module Folsolver.Normalform
  ( abFormula, ABFormula(..)
- , isAlpha, isBeta, isLiteral
+ , isAlpha, isBeta, isLiteral, isAlphaFormula
    --
  , mkNeg, negQ, negNormal, negNormalNeg
- , isSimple, isComplex, reduction
+ , isSimple, isQuant, reduction
  , RedFormula(..)
  , unifyFormula, unifyTerm, unifyEquals, variableRename
  ) where

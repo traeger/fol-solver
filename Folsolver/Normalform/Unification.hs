@@ -91,6 +91,6 @@ variableRename x y f    = case unwrapF f of
 
 variableRenameT :: V -> Term -> Term -> Term
 variableRenameT x y t   = case unwrapT t of
-    Var v               -> wrapT $ if x == v then y else (Var v)
+    Var v               -> if x == v then y else wrapT (Var v)
     FunApp fun args     -> wrapT $ FunApp fun (map (variableRenameT x y) args)
     _                   -> t
