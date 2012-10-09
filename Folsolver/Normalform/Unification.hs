@@ -74,8 +74,12 @@ containsT x t   = case unwrapT t of
     (DistinctObjectTerm _)  -> False
     (FunApp _ args)         -> or $ map (containsT x) args
 
-unifyEquals :: Formula -> Formula -> Bool
-unifyEquals a b = isJust $ unifyFormula (Just $ M.empty) a b
+unifyEquals :: Map V Term -> Formula -> Formula -> (Bool, Map V Term)
+unifyEquals m a b 
+    | isJust newMap     = (True, fromJust newMap)
+    | otherwise         = (False, m)
+    where
+        newMap = unifyFormula (Just m) a b
 
 variableRename 
     :: V            -- Ersetzte diese Variable

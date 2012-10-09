@@ -13,6 +13,8 @@ import Folsolver.Data.TPTP_Gen
 
 import Data.Set (Set) 
 import qualified Data.Set as S
+import Data.Map (Map)
+import qualified Data.Map as M
 import Data.Maybe (fromJust, fromMaybe)
 import Data.List (nub)
 
@@ -50,7 +52,7 @@ tableauFO pick formulas = tableau0 (pick) 1 simple compl (leaf formulas)
 
 tableau0
   :: ([FOForm] -> [FOForm] -> (FOForm, [FOForm],[FOForm]))  -- pick function fuer die naechste formula
-  -> Integer
+  -> Integer        -- Position in the tree
   -> [FOForm]  -- noch nicht genutzten formulas
   -> [FOForm]  -- quantifizierte formulas
   -> FOTableau    -- kurzzeitiges Tableau (brauchen wir fuer mehrere alpha schritte)
@@ -123,6 +125,9 @@ tableau0 pick pos formulas quans t    =
                 else
                     value t <|> tableau0 pick (2*pos) (fs++[(next,v)]) qs (leaf [next])
   --  _   -> tableau0 pick pos fs qs t
+
+type Sub5t1tut0r = Map V Term
+
 {-
  - | This function iterates over the tableau and checks
  - | whether the negate of a new formula already occured.
@@ -133,89 +138,111 @@ checkFOTableau
     :: 
     FOTableau             -- Current branch of the tableau
     -> Set Formula      -- Formulas seen so far
-    -> Bool             
-checkFOTableau (BinEmpty) _   = False
-checkFOTableau (SNode t v) forms =
+    -> Sub5t1tut0r
+    -> (Bool,Sub5t1tut0r)             
+checkFOTableau (BinEmpty) _ m  = (False, m)
+checkFOTableau (SNode t v) forms m =
     let
-        (cond, nForms)  = isClosed (map formula v) forms
+        (cond, nForms, m')  = isClosed (map formula v) m forms
     in
-        cond || (checkFOTableau t nForms)
-checkFOTableau t forms        = 
+        if cond
+        then
+            (True, m')
+        else
+            (checkFOTableau t nForms m)
+checkFOTableau t forms m       = 
     let
-        (cond, nForms)      = isClosed (map formula $ value t) forms
+        (cond, nForms, m')      = isClosed (map formula $ value t) m forms
+        (closed1, m1)           = checkFOTableau (left t) nForms m'
+        (closed2, m2)           = checkFOTableau (right t) nForms m1
     in
-        cond || (checkFOTableau (left t) nForms && checkFOTableau (right t) nForms)
+        if cond
+        then
+            (True,m')
+        else if closed1 && closed2
+        then
+            (True,m2)
+        else
+            (False, M.empty)
 
-isClosed :: [Formula] -> Set Formula -> (Bool, Set Formula)
-isClosed [] forms              = (False, forms)
-isClosed (x:xs) forms
-    | isTrue x                                  = isClosed xs forms
-    | isFalse x                                 = (True, forms)
-    | S.member (noDoubleNeg ((.~.) x)) forms    = (True, forms)
-    | or $ map (unifyEquals (noDoubleNeg ((.~.) x))) (S.toList forms)  = (True, forms)
-    | otherwise                                 = isClosed xs forms
+isClosed :: [Formula] -> Sub5t1tut0r -> Set Formula -> (Bool, Set Formula, Sub5t1tut0r)
+isClosed [] m forms                             = (False, forms, m)
+isClosed (x:xs) m forms
+    | isTrue x                                  = isClosed xs m forms
+    | isFalse x                                 = (True, forms, m)
+    | S.member (noDoubleNeg ((.~.) x)) forms    = (True, forms, m)
+    | not $ null $ filter fst ergs              = (True, forms, snd $ head $ ergs)
+    | otherwise                                 = isClosed xs m (S.insert x forms)
+    where
+        ergs = map (unifyEquals m (noDoubleNeg ((.~.) x))) (S.toList forms)
             
 proofSATFOTableau 
     :: 
     FOTableau             -- Current branch of the tableau
+    -> Sub5t1tut0r
     -> Set TPTP_Input      -- Formulas seen so far
-    -> Proof FOTableau 
-proofSATFOTableau (BinEmpty) forms = mkSATProof $ nub $ filter isLiteral $ (map formula) $ S.toList $ forms
-proofSATFOTableau (SNode t v) forms
+    -> (Proof FOTableau , Sub5t1tut0r)
+proofSATFOTableau (BinEmpty) m forms = (mkSATProof $ nub $ filter isLiteral $ (map formula) $ S.toList $ forms , m)
+proofSATFOTableau (SNode t v) m forms
     | closed                =
         let
-            witTPTP     = head $ filter ((==) $ fromJust witness) $ v
+            witTPTP     = fromJust witness
             tillWit     = takeWhile ((/=) $ fromJust witness) $ v
+            (AtomicWord errName)   = name $ fromJust errCase
             (AtomicWord fName) = name witTPTP
             wName       = drop 12 fName
-            contradict  = mkTPTP ("contradict_"++wName) "plain" false [("contradiction_of",[fName])]
+            contForm    = (formula witTPTP) .&. (formula $ fromJust errCase)
+            contradict = mkTPTP ("contradict_"++wName) "plain" contForm [("contradiction_of",[fName, errName])]
         in
-            mkNSATProof $ leaf $ tillWit ++ [witTPTP,contradict]
-    | isSATProof subTree    = subTree
-    | otherwise             = mkNSATProof $ v <|> subPTree
+            (mkNSATProof $ leaf $ tillWit ++ [witTPTP,contradict], m')
+    | isSATProof subTree    = (subTree, m'')
+    | otherwise             = (mkNSATProof $ v <|> subPTree, m'')
     where
-        (closed,nForms,witness) = isClosedWithWitness v forms
-        subTree                 = proofSATFOTableau t nForms
-        subPTree                = fromNSATProofT subTree
-proofSATFOTableau t forms
+        (closed,nForms,witness, errCase, m')    = isClosedWithWitness v m forms
+        (subTree,m'')                           = proofSATFOTableau t m nForms
+        subPTree                                = fromNSATProofT subTree
+proofSATFOTableau t m forms
     | closed                = 
         let
-            witTPTP     = head $ filter ((==) $ fromJust witness) $ value t
+            witTPTP     = fromJust witness
             tillWit     = takeWhile ((/=) $ fromJust witness) $ value t
+            (AtomicWord errName)   = name $ fromJust errCase
             (AtomicWord fName) = name witTPTP
             wName       = drop 12 fName
-            -- cond        = head $ filter (((==) (noDoubleNeg ((.~.) $ formula witTPTP))).formula) ((S.toList forms)++(value t))
-            contradict = mkTPTP ("contradict_"++wName) "plain" false [("contradiction_of",[fName])]
+            contForm    = (formula witTPTP) .&. (formula $ fromJust errCase)
+            contradict = mkTPTP ("contradict_"++wName) "plain" contForm [("contradiction_of",[fName, errName])]
         in
-            mkNSATProof $ leaf $ tillWit ++ [witTPTP,contradict]
-    | isSATProof proofLeft  = proofLeft
-    | isSATProof proofRight = proofRight
-    | otherwise             = mkNSATProof $ leftPTree <# value t #> rightPTree
+            (mkNSATProof $ leaf $ tillWit ++ [witTPTP,contradict],m')
+    | isSATProof proofLeft  = (proofLeft,m'')
+    | isSATProof proofRight = (proofRight,m''')
+    | otherwise             = (mkNSATProof $ leftPTree <# value t #> rightPTree, m''')
     where
-        (closed, nForms, witness)  = isClosedWithWitness (value t) forms
-        proofLeft       = proofSATFOTableau (left t) nForms
-        proofRight      = proofSATFOTableau (right t) nForms
+        (closed, nForms, witness, errCase, m')  = isClosedWithWitness (value t) m forms
+        (proofLeft,m'')      = proofSATFOTableau (left t) m' nForms
+        (proofRight, m''')   = proofSATFOTableau (right t) m'' nForms
         (leftPTree)  = fromNSATProofT proofLeft
         (rightPTree) = fromNSATProofT proofRight
 
-isClosedWithWitness :: [TPTP_Input] -> Set TPTP_Input -> (Bool, Set TPTP_Input, Maybe TPTP_Input)
-isClosedWithWitness [] forms              = (False, forms, Nothing)
-isClosedWithWitness (x:xs) forms
-    | isTrue (formula x)        = isClosedWithWitness xs forms
-    | isFalse (formula x)       = (True, forms, Just x)
-    | S.member (noDoubleNeg ((.~.) (formula x))) (S.map formula forms)  
-                                = (True, forms, Just x)
-    | or $ map (unifyEquals (noDoubleNeg ((.~.) (formula x)))) (map formula $ S.toList forms)
-                                = (True, forms, Just x)
-    | otherwise                 = isClosedWithWitness xs (S.insert x forms)
+isClosedWithWitness :: [TPTP_Input] -> Sub5t1tut0r -> Set TPTP_Input -> (Bool, Set TPTP_Input, Maybe TPTP_Input, Maybe TPTP_Input, Sub5t1tut0r)
+isClosedWithWitness [] m forms             = (False, forms, Nothing, Nothing, m)
+isClosedWithWitness (x:xs) m forms
+    | isTrue (formula x)                            = isClosedWithWitness xs m forms
+    | isFalse (formula x)                           = (True, forms, Just x, Just x, m)
+    | not $ null directErgs                         = (True, forms, Just x, Just $ head directErgs, m)
+    | not $ null $ unifyErgs                        = (True, forms, Just x, Just $ snd $ head unifyErgs, snd $ fst $ head $ unifyErgs)
+    | otherwise                                     = isClosedWithWitness xs m (S.insert x forms)
+    where
+        negF        = noDoubleNeg ((.~.) (formula x))
+        directErgs = filter (((==) negF ) . formula) (S.toList forms)
+        unifyErgs = filter (fst . fst) $  map (\x -> (unifyEquals m negF (formula x), x)) (S.toList forms)
  
 instance Proofer FOTableau where
   data NSATProof FOTableau = NSAT {fromNSATproofT :: FOTableau} deriving Show
   data Picker FOTableau = Picker {pick :: [FOForm] -> [FOForm] -> (FOForm, [FOForm],[FOForm])}
   mkProofer (Picker picker) formulas = tableauFO picker formulas
   
-  isSAT tableau = not $ checkFOTableau tableau S.empty
-  proofSAT t = proofSATFOTableau t S.empty
+  isSAT tableau = not $ fst $ checkFOTableau tableau S.empty M.empty
+  proofSAT t = fst $ proofSATFOTableau t M.empty S.empty
 
 mkNSATProof = mkProof . NSAT
 fromNSATProofT = fromNSATproofT . getNSATProof0
