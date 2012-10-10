@@ -2,7 +2,9 @@
 
 module Folsolver.FOTableau
  ( tableauFO, checkFOTableau, proofSATFOTableau, Proofer(..), simplePickFO
- , checkFOT, proofFOT) where
+ , checkFOT, proofFOT
+ , module Folsolver.Data.FOTableau
+ , Picker(..), fromNSATProofT) where
 
 import Codec.TPTP
 import Folsolver.Normalform
