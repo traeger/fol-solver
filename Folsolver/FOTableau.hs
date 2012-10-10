@@ -24,16 +24,16 @@ import Data.Functor.Identity
 
 import Text.PrettyPrint.HughesPJ as Pretty
 
-type FOForm = (TPTP_Input,[V],[V])
+type FOForm = (TPTP_Input,[V])
 
 maxNodeLength :: Int
 maxNodeLength = 20
 
 fofformula :: FOForm -> TPTP_Input
-fofformula (x,_,_)       = x
+fofformula (x,_)       = x
 
 freeVariables :: FOForm -> [V]
-freeVariables (_,v,_) = v
+freeVariables (_,v) = v
 
 sAN :: AtomicWord -> String
 sAN (AtomicWord s)  = s
@@ -47,23 +47,26 @@ tableauFO
   :: ([FOForm] -> (FOForm, [FOForm]))  -- pick function fuer die naechste formula
   -> [TPTP_Input]  -- noch zu nutztende formulas
   -> FOTableau
-tableauFO pick formulas = tableau0 (pick) 1 simple (leaf $ (formulas,[]))
+tableauFO pick formulas = tableau0 (pick) 1 simple noUniversal (leaf $ (formulas,[]))
     where
         simple  = initFormulas formulas
         initFormulas :: [TPTP_Input] -> [FOForm]
-        initFormulas xs = map (\x -> (x,[],[])) $ filter (isAlphaFormula . formula) xs ++ filter (\x -> (not (isAlphaFormula $ formula  x))) xs
+        initFormulas xs = map (\x -> (x,[])) $ filter (isAlphaFormula . formula) xs ++ filter (\x -> (not (isAlphaFormula $ formula  x))) xs
+
+noUniversal = []
 
 tableau0
   :: ([FOForm] -> (FOForm, [FOForm]))  -- pick function fuer die naechste formula
   -> Integer        -- Position in the tree
   -> [FOForm]  -- noch nicht genutzten formulas
+  -> [V]       -- universal quantifiers
   -> FOTableau    -- kurzzeitiges Tableau (brauchen wir fuer mehrere alpha schritte)
   -> FOTableau
-tableau0 pick pos [] t           = t
-tableau0 pick pos formulas t    = 
+tableau0 pick pos [] universal t           = t
+tableau0 pick pos formulas universal t    = 
   let
     nameFun p q = "genFunction_"++(show p)++"_"++(show q)
-    ((f,v,universal),fs) = pick formulas
+    ((f,v),fs) = pick formulas
   in case reduction $ formula f of
     AlphaR a1 a2 
         -> 
@@ -73,16 +76,16 @@ tableau0 pick pos formulas t    =
             in
                 if (length $ fst $ value t) > maxNodeLength
                 then
-                    tableau0 pick pos (fs++[(at1,v,universal),(at2,v,universal)]) (leaf $ ((fst $ value t) ++ [at1, at2],[]))
+                    tableau0 pick pos (fs++[(at1,v),(at2,v)]) universal (leaf $ ((fst $ value t) ++ [at1, at2],[]))
                 else
-                    value t <|> tableau0 pick (2*pos) (fs++[(at1,v,universal),(at2,v,universal)]) (leaf ([at1, at2],[])) 
+                    value t <|> tableau0 pick (2*pos) (fs++[(at1,v),(at2,v)]) universal (leaf ([at1, at2],[])) 
     BetaR b1 b2  
         -> 
             let
                 bt1 = mkTPTP (nameFun (pos * 2) 1) "plain" b1 [("beta1",[sAN.name $ f])]
                 bt2 = mkTPTP (nameFun ((2*pos)+1) 1) "plain" b2 [("beta2",[sAN.name $ f])]
-                t1 = tableau0 pick (2*pos) (fs++[(bt1,v,[])]) (leaf $ ([bt1], []))
-                t2 = tableau0 pick (2*pos + 1) (fs++[(bt2,v,[])]) (leaf $ ([bt2], []))
+                t1 = tableau0 pick (2*pos) (fs++[(bt1,v)]) noUniversal (leaf $ ([bt1], []))
+                t2 = tableau0 pick (2*pos + 1) (fs++[(bt2,v)]) noUniversal (leaf $ ([bt2], []))
             in
                 t1  <# (fst $ value t, universal) #> t2
     DNegate n   
@@ -92,11 +95,11 @@ tableau0 pick pos formulas t    =
             in
                 if (length $ fst $ value t) > maxNodeLength
                 then
-                    tableau0 pick pos (fs++[(f1,v,universal)]) (leaf $ ((fst $ value t) ++ [f1], []))                    -- handle double negate
+                    tableau0 pick pos (fs++[(f1,v)]) universal (leaf $ ((fst $ value t) ++ [f1], []))                    -- handle double negate
                 else
-                    value t <|> tableau0 pick (2*pos) (fs++[(f1,v,universal)]) (leaf $ ([f1], []))
+                    value t <|> tableau0 pick (2*pos) (fs++[(f1,v)]) universal (leaf $ ([f1], []))
     AtomR _     
-        -> tableau0 pick pos fs t
+        -> tableau0 pick pos fs universal t
     GammaR form var
         ->
             let
@@ -108,9 +111,9 @@ tableau0 pick pos formulas t    =
             in 
                 if (length $ fst $ value t) > maxNodeLength
                 then
-                    tableau0 pick pos (fs++[(next,varName:v,varName:universal),(f,v,universal)]) t
+                    tableau0 pick pos (fs++[(next,varName:v),(f,v)]) (varName:universal) t
                 else
-                    value t <|> tableau0 pick (2*pos) (fs++[(next,varName:v,varName:universal),(f,v,universal)]) (leaf ([next], []) )
+                    value t <|> tableau0 pick (2*pos) (fs++[(next,varName:v),(f,v)]) (varName:universal) (leaf ([next], []) )
     DeltaR form var 
         -> 
             let
@@ -123,10 +126,10 @@ tableau0 pick pos formulas t    =
             in
                 if (length $ fst $ value t) > maxNodeLength
                 then
-                    tableau0 pick pos (fs++[(next,v,universal)]) t
+                    tableau0 pick pos (fs++[(next,v)]) universal t
                 else
-                    value t <|> tableau0 pick (2*pos) (fs++[(next,v,universal)]) (leaf ([next],[]) )
-  --  _   -> tableau0 pick pos fs qs t
+                    value t <|> tableau0 pick (2*pos) (fs++[(next,v)]) universal (leaf ([next],[]) )
+  --  _   -> tableau0 pick pos fs qs universal t
 
 type Sub5t1tut0r = Map V Term
 
@@ -215,8 +218,8 @@ proofSATFOTableau t m forms
             contradict = mkTPTP ("contradict_"++wName) "plain" contForm [("contradiction_of",[fName, errName])]
         in
             (mkNSATProof $ leaf $ flip (,) [] $ tillWit ++ [witTPTP,contradict],m')
-    | isSATProof proofLeft  = (proofLeft,m'')
-    | isSATProof proofRight = (proofRight,m''')
+    | isSATProof proofLeft  = (proofLeft, M.empty)
+    | isSATProof proofRight = (proofRight, M.empty)
     | otherwise             = (mkNSATProof $ leftPTree <# value t #> rightPTree, m''')
     where
         (closed, nForms, witness, errCase, m')  = isClosedWithWitness (fst $ value t) m forms
