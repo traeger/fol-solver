@@ -33,68 +33,68 @@ fofformula (x,_)       = x
 freeVariables :: FOForm -> [V]
 freeVariables (_,v) = v
 
+sAN :: AtomicWord -> String
+sAN (AtomicWord s)  = s
+
 simplePickFO 
     :: [FOForm]                 -- Aufzulösende Formeln 
-    -> [FOForm]                 -- Quantifizierte Formeln
-    -> (FOForm, [FOForm], [FOForm])
-simplePickFO [] (f:fs)  = (f,[],fs)
-simplePickFO (f:fs) xs  = (f,fs,xs)
+    -> (FOForm, [FOForm])
+simplePickFO (f:fs) = (f,fs)
 
 tableauFO
-  :: ([FOForm] -> [FOForm] -> (FOForm, [FOForm], [FOForm]))  -- pick function fuer die naechste formula
+  :: ([FOForm] -> (FOForm, [FOForm]))  -- pick function fuer die naechste formula
   -> [TPTP_Input]  -- noch zu nutztende formulas
   -> FOTableau
-tableauFO pick formulas = tableau0 (pick) 1 simple compl (leaf formulas)
+tableauFO pick formulas = tableau0 (pick) 1 simple (leaf formulas)
     where
-        (simple,compl) = initFormulas formulas
-        initFormulas :: [TPTP_Input] -> ([FOForm],[FOForm])
-        initFormulas xs = (map (\x -> (x,[])) $ filter (isAlphaFormula . formula) xs ++ filter (\x -> (isSimple . formula) x && (not (isAlphaFormula $ formula  x))) xs, map (\x -> (x,[])) $ filter (isQuant . formula) xs)
+        simple  = initFormulas formulas
+        initFormulas :: [TPTP_Input] -> [FOForm]
+        initFormulas xs = map (\x -> (x,[])) $ filter (isAlphaFormula . formula) xs ++ filter (\x -> (not (isAlphaFormula $ formula  x))) xs
 
 tableau0
-  :: ([FOForm] -> [FOForm] -> (FOForm, [FOForm],[FOForm]))  -- pick function fuer die naechste formula
+  :: ([FOForm] -> (FOForm, [FOForm]))  -- pick function fuer die naechste formula
   -> Integer        -- Position in the tree
   -> [FOForm]  -- noch nicht genutzten formulas
-  -> [FOForm]  -- quantifizierte formulas
   -> FOTableau    -- kurzzeitiges Tableau (brauchen wir fuer mehrere alpha schritte)
   -> FOTableau
-tableau0 pick pos [] [] t           = t
-tableau0 pick pos formulas quans t    = 
+tableau0 pick pos [] t           = t
+tableau0 pick pos formulas t    = 
   let
     nameFun p q = "genFunction_"++(show p)++"_"++(show q)
-    ((f,v),fs,qs) = pick formulas quans
+    ((f,v),fs) = pick formulas
   in case reduction $ formula f of
     AlphaR a1 a2 
         -> 
             let
-                at1 = mkTPTP (nameFun pos $ (length $ value t)) "plain" a1 [("alpha1",[show.name $ f])]
-                at2 = mkTPTP (nameFun pos $ (length $ value t)+1) "plain" a2 [("alpha2",[show.name $ f])]
+                at1 = mkTPTP (nameFun pos $ (length $ value t)) "plain" a1 [("alpha1",[sAN.name $ f])]
+                at2 = mkTPTP (nameFun pos $ (length $ value t)+1) "plain" a2 [("alpha2",[sAN.name $ f])]
             in
                 if (length $ value t) > maxNodeLength
                 then
-                    tableau0 pick pos (fs++[(at1,v),(at2,v)]) qs (leaf $ value t ++ [at1, at2])
+                    tableau0 pick pos (fs++[(at1,v),(at2,v)]) (leaf $ value t ++ [at1, at2])
                 else
-                    value t <|> tableau0 pick (2*pos) (fs++[(at1,v),(at2,v)]) qs (leaf [at1,at2]) 
+                    value t <|> tableau0 pick (2*pos) (fs++[(at1,v),(at2,v)]) (leaf [at1,at2]) 
     BetaR b1 b2  
         -> 
             let
-                bt1 = mkTPTP (nameFun (pos * 2) 1) "plain" b1 [("beta1",[show.name $ f])]
-                bt2 = mkTPTP (nameFun ((2*pos)+1) 1) "plain" b2 [("beta2",[show.name $ f])]
-                t1 = tableau0 pick (2*pos) (fs++[(bt1,v)]) qs (leaf [bt1])
-                t2 = tableau0 pick (2*pos + 1) (fs++[(bt2,v)]) qs (leaf [bt2])
+                bt1 = mkTPTP (nameFun (pos * 2) 1) "plain" b1 [("beta1",[sAN.name $ f])]
+                bt2 = mkTPTP (nameFun ((2*pos)+1) 1) "plain" b2 [("beta2",[sAN.name $ f])]
+                t1 = tableau0 pick (2*pos) (fs++[(bt1,v)]) (leaf [bt1])
+                t2 = tableau0 pick (2*pos + 1) (fs++[(bt2,v)]) (leaf [bt2])
             in
                 t1  <# value t #> t2
     DNegate n   
         ->
             let
-                f1 = mkTPTP (nameFun pos $ (length $ value t)) "plain" n [("negate",[show.name $ f])]
+                f1 = mkTPTP (nameFun pos $ (length $ value t)) "plain" n [("negate",[sAN.name $ f])]
             in
                 if (length $ value t) > maxNodeLength
                 then
-                    tableau0 pick pos (fs++[(f1,v)]) qs (leaf $ value t ++ [f1])                    -- handle double negate
+                    tableau0 pick pos (fs++[(f1,v)]) (leaf $ value t ++ [f1])                    -- handle double negate
                 else
-                    value t <|> tableau0 pick (2*pos) (fs++[(f1,v)]) qs (leaf [f1])
+                    value t <|> tableau0 pick (2*pos) (fs++[(f1,v)]) (leaf [f1])
     AtomR _     
-        -> tableau0 pick pos fs qs t
+        -> tableau0 pick pos fs t
     GammaR form var
         ->
             let
@@ -106,9 +106,9 @@ tableau0 pick pos formulas quans t    =
             in 
                 if (length $ value t) > maxNodeLength
                 then
-                    tableau0 pick pos (fs++[(next,varName:v)]) (qs++[(f,v)]) t
+                    tableau0 pick pos (fs++[(next,varName:v),(f,v)]) t
                 else
-                    value t <|> tableau0 pick (2*pos) (fs++[(next,varName:v)]) (qs++[(f,v)]) (leaf [next])
+                    value t <|> tableau0 pick (2*pos) (fs++[(next,varName:v),(f,v)])  (leaf [next])
     DeltaR form var 
         -> 
             let
@@ -121,9 +121,9 @@ tableau0 pick pos formulas quans t    =
             in
                 if (length $ value t) > maxNodeLength
                 then
-                    tableau0 pick pos (fs++[(next,v)]) qs t
+                    tableau0 pick pos (fs++[(next,v)]) t
                 else
-                    value t <|> tableau0 pick (2*pos) (fs++[(next,v)]) qs (leaf [next])
+                    value t <|> tableau0 pick (2*pos) (fs++[(next,v)]) (leaf [next])
   --  _   -> tableau0 pick pos fs qs t
 
 type Sub5t1tut0r = Map V Term
@@ -153,8 +153,8 @@ checkFOTableau (SNode t v) forms m =
 checkFOTableau t forms m       = 
     let
         (cond, nForms, m')      = isClosed (map formula $ value t) m forms
-        (closed1, m1)           = checkFOTableau (left t) nForms m'
-        (closed2, m2)           = checkFOTableau (right t) nForms m1
+        (closed1, m1)           = checkFOTableau (left t) nForms m
+        (closed2, m2)           = checkFOTableau (right t) nForms m
     in
         if cond
         then
@@ -218,8 +218,8 @@ proofSATFOTableau t m forms
     | otherwise             = (mkNSATProof $ leftPTree <# value t #> rightPTree, m''')
     where
         (closed, nForms, witness, errCase, m')  = isClosedWithWitness (value t) m forms
-        (proofLeft,m'')      = proofSATFOTableau (left t) m' nForms
-        (proofRight, m''')   = proofSATFOTableau (right t) m'' nForms
+        (proofLeft,m'')      = proofSATFOTableau (left t) m nForms
+        (proofRight, m''')   = proofSATFOTableau (right t) m nForms
         (leftPTree)  = fromNSATProofT proofLeft
         (rightPTree) = fromNSATProofT proofRight
 
@@ -238,7 +238,7 @@ isClosedWithWitness (x:xs) m forms
  
 instance Proofer FOTableau where
   data NSATProof FOTableau = NSAT {fromNSATproofT :: FOTableau} deriving Show
-  data Picker FOTableau = Picker {pick :: [FOForm] -> [FOForm] -> (FOForm, [FOForm],[FOForm])}
+  data Picker FOTableau = Picker {pick :: [FOForm] -> (FOForm, [FOForm])}
   mkProofer (Picker picker) formulas = tableauFO picker formulas
   
   isSAT tableau = not $ fst $ checkFOTableau tableau S.empty M.empty

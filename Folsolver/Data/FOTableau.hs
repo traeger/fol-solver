@@ -5,4 +5,4 @@ module Folsolver.Data.FOTableau
 import Folsolver.Data.BinTreeS
 import Codec.TPTP
 
-type FOTableau = BinTreeS ([TPTP_Input] , [V])
+type FOTableau = BinTreeS [TPTP_Input]
