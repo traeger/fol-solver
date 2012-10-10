@@ -24,3 +24,6 @@ quant4 = readExampleUnsafe "Data/Examples/quant_4.tptp"
 quant5 = readExampleUnsafe "Data/Examples/quant_5.tptp"
 
 agatha = readExampleUnsafe "Data/Examples/agatha.tptp"
+
+arithmetic1 = readExampleUnsafe "Data/Examples/arithmetic1.tptp"
+arithmetic2 = readExampleUnsafe "Data/Examples/arithmetic2.tptp"

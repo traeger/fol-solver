@@ -250,8 +250,8 @@ fromNSATProofT = fromNSATproofT . getNSATProof0
 instance HasPretty (NSATProof FOTableau) where
   pretty (NSAT nsatproof) = Pretty.text "  [ tableau proof ]" $$ pretty nsatproof
   
-instance (HasPretty ([TPTP_Input_ Identity], [V])) where
-  pretty (a,b) = pretty a
+-- instance (HasPretty ([TPTP_Input_ Identity], [V])) where
+--  pretty (a,b) = pretty a
 
 -- | shorthands to use a tableau proofer
 proofFOT = proof (Picker simplePickFO)
