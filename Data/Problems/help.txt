@@ -1,0 +1,8 @@
+prefix meaning:
+
+cse    - Counter Satisfying problem, found Theorem (we should not!)
+csnt   - Counter Satisfying problem, does Not Terminate
+
+second prefix:
+
+nobeta - no beta rule is used in the proof.
