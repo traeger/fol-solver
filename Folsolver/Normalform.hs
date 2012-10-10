@@ -6,6 +6,7 @@ module Folsolver.Normalform
  , isSimple, isQuant, reduction
  , RedFormula(..)
  , unifyFormula, unifyTerm, unifyEquals, variableRename
+ , removeVarOccurance
  ) where
 
 import Folsolver.Normalform.ABFormula

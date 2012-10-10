@@ -22,16 +22,16 @@ import Data.Functor.Identity
 
 import Text.PrettyPrint.HughesPJ as Pretty
 
-type FOForm = (TPTP_Input,[V])
+type FOForm = (TPTP_Input,[V],[V])
 
 maxNodeLength :: Int
 maxNodeLength = 20
 
 fofformula :: FOForm -> TPTP_Input
-fofformula (x,_)       = x
+fofformula (x,_,_)       = x
 
 freeVariables :: FOForm -> [V]
-freeVariables (_,v) = v
+freeVariables (_,v,_) = v
 
 sAN :: AtomicWord -> String
 sAN (AtomicWord s)  = s
@@ -45,11 +45,11 @@ tableauFO
   :: ([FOForm] -> (FOForm, [FOForm]))  -- pick function fuer die naechste formula
   -> [TPTP_Input]  -- noch zu nutztende formulas
   -> FOTableau
-tableauFO pick formulas = tableau0 (pick) 1 simple (leaf formulas)
+tableauFO pick formulas = tableau0 (pick) 1 simple (leaf $ (formulas,[]))
     where
         simple  = initFormulas formulas
         initFormulas :: [TPTP_Input] -> [FOForm]
-        initFormulas xs = map (\x -> (x,[])) $ filter (isAlphaFormula . formula) xs ++ filter (\x -> (not (isAlphaFormula $ formula  x))) xs
+        initFormulas xs = map (\x -> (x,[],[])) $ filter (isAlphaFormula . formula) xs ++ filter (\x -> (not (isAlphaFormula $ formula  x))) xs
 
 tableau0
   :: ([FOForm] -> (FOForm, [FOForm]))  -- pick function fuer die naechste formula
@@ -61,69 +61,69 @@ tableau0 pick pos [] t           = t
 tableau0 pick pos formulas t    = 
   let
     nameFun p q = "genFunction_"++(show p)++"_"++(show q)
-    ((f,v),fs) = pick formulas
+    ((f,v,universal),fs) = pick formulas
   in case reduction $ formula f of
     AlphaR a1 a2 
         -> 
             let
-                at1 = mkTPTP (nameFun pos $ (length $ value t)) "plain" a1 [("alpha1",[sAN.name $ f])]
-                at2 = mkTPTP (nameFun pos $ (length $ value t)+1) "plain" a2 [("alpha2",[sAN.name $ f])]
+                at1 = mkTPTP (nameFun pos $ (length $ fst $ value t)) "plain" a1 [("alpha1",[sAN.name $ f])]
+                at2 = mkTPTP (nameFun pos $ (length $ fst $ value t)+1) "plain" a2 [("alpha2",[sAN.name $ f])]
             in
-                if (length $ value t) > maxNodeLength
+                if (length $ fst $ value t) > maxNodeLength
                 then
-                    tableau0 pick pos (fs++[(at1,v),(at2,v)]) (leaf $ value t ++ [at1, at2])
+                    tableau0 pick pos (fs++[(at1,v,universal),(at2,v,universal)]) (leaf $ ((fst $ value t) ++ [at1, at2],[]))
                 else
-                    value t <|> tableau0 pick (2*pos) (fs++[(at1,v),(at2,v)]) (leaf [at1,at2]) 
+                    value t <|> tableau0 pick (2*pos) (fs++[(at1,v,universal),(at2,v,universal)]) (leaf ([at1, at2],[])) 
     BetaR b1 b2  
         -> 
             let
                 bt1 = mkTPTP (nameFun (pos * 2) 1) "plain" b1 [("beta1",[sAN.name $ f])]
                 bt2 = mkTPTP (nameFun ((2*pos)+1) 1) "plain" b2 [("beta2",[sAN.name $ f])]
-                t1 = tableau0 pick (2*pos) (fs++[(bt1,v)]) (leaf [bt1])
-                t2 = tableau0 pick (2*pos + 1) (fs++[(bt2,v)]) (leaf [bt2])
+                t1 = tableau0 pick (2*pos) (fs++[(bt1,v,[])]) (leaf $ ([bt1], []))
+                t2 = tableau0 pick (2*pos + 1) (fs++[(bt2,v,[])]) (leaf $ ([bt2], []))
             in
-                t1  <# value t #> t2
+                t1  <# (fst $ value t, universal) #> t2
     DNegate n   
         ->
             let
-                f1 = mkTPTP (nameFun pos $ (length $ value t)) "plain" n [("negate",[sAN.name $ f])]
+                f1 = mkTPTP (nameFun pos $ (length $ fst $ value t)) "plain" n [("negate",[sAN.name $ f])]
             in
-                if (length $ value t) > maxNodeLength
+                if (length $ fst $ value t) > maxNodeLength
                 then
-                    tableau0 pick pos (fs++[(f1,v)]) (leaf $ value t ++ [f1])                    -- handle double negate
+                    tableau0 pick pos (fs++[(f1,v,universal)]) (leaf $ ((fst $ value t) ++ [f1], []))                    -- handle double negate
                 else
-                    value t <|> tableau0 pick (2*pos) (fs++[(f1,v)]) (leaf [f1])
+                    value t <|> tableau0 pick (2*pos) (fs++[(f1,v,universal)]) (leaf $ ([f1], []))
     AtomR _     
         -> tableau0 pick pos fs t
     GammaR form var
         ->
             let
                 (AtomicWord oldName)    = name f
-                newFunName  = "genFunction_"++show pos++"_"++(show $ length $ value t)
-                varName = V $ "FreeVar_"++show pos++"_"++(show $ length $ value t)
+                newFunName  = "genFunction_"++show pos++"_"++(show $ length $ fst $ value t)
+                varName = V $ "FreeVar_"++show pos++"_"++(show $ length $ fst $ value t)
                 rename  = variableRename var (T $ Identity $ Var varName) form
                 next    = mkTPTP newFunName "plain" rename [("gamma",[oldName])]
             in 
-                if (length $ value t) > maxNodeLength
+                if (length $ fst $ value t) > maxNodeLength
                 then
-                    tableau0 pick pos (fs++[(next,varName:v),(f,v)]) t
+                    tableau0 pick pos (fs++[(next,varName:v,varName:universal),(f,v,universal)]) t
                 else
-                    value t <|> tableau0 pick (2*pos) (fs++[(next,varName:v),(f,v)])  (leaf [next])
+                    value t <|> tableau0 pick (2*pos) (fs++[(next,varName:v,varName:universal),(f,v,universal)]) (leaf ([next], []) )
     DeltaR form var 
         -> 
             let
                 (AtomicWord oldName)    = name f
-                newFunName  = "genFunction_"++show pos++"_"++(show $ length $ value t)
-                skolName    = AtomicWord $ "skolFun_"++show pos++"_"++(show $ length $ value t)
+                newFunName  = "genFunction_"++show pos++"_"++(show $ length $ fst $ value t)
+                skolName    = AtomicWord $ "skolFun_"++show pos++"_"++(show $ length $ fst $ value t)
                 skolFun     = T $ Identity $ FunApp skolName (map (\x -> (T $ Identity $ Var x)) v)
                 rename      = variableRename var skolFun form
                 next        = mkTPTP newFunName "plain" rename [("delta",[oldName])]
             in
-                if (length $ value t) > maxNodeLength
+                if (length $ fst $ value t) > maxNodeLength
                 then
-                    tableau0 pick pos (fs++[(next,v)]) t
+                    tableau0 pick pos (fs++[(next,v,universal)]) t
                 else
-                    value t <|> tableau0 pick (2*pos) (fs++[(next,v)]) (leaf [next])
+                    value t <|> tableau0 pick (2*pos) (fs++[(next,v,universal)]) (leaf ([next],[]) )
   --  _   -> tableau0 pick pos fs qs t
 
 type Sub5t1tut0r = Map V Term
@@ -143,7 +143,7 @@ checkFOTableau
 checkFOTableau (BinEmpty) _ m  = (False, m)
 checkFOTableau (SNode t v) forms m =
     let
-        (cond, nForms, m')  = isClosed (map formula v) m forms
+        (cond, nForms, m')  = isClosed (map formula $ fst v) m forms
     in
         if cond
         then
@@ -152,9 +152,9 @@ checkFOTableau (SNode t v) forms m =
             (checkFOTableau t nForms m)
 checkFOTableau t forms m       = 
     let
-        (cond, nForms, m')      = isClosed (map formula $ value t) m forms
+        (cond, nForms, m')      = isClosed (map formula $ fst $ value t) m forms
         (closed1, m1)           = checkFOTableau (left t) nForms m
-        (closed2, m2)           = checkFOTableau (right t) nForms m
+        (closed2, m2)           = checkFOTableau (right t) nForms (removeVarOccurance (snd $ value t) m1)
     in
         if cond
         then
@@ -187,39 +187,39 @@ proofSATFOTableau (SNode t v) m forms
     | closed                =
         let
             witTPTP     = fromJust witness
-            tillWit     = takeWhile ((/=) $ fromJust witness) $ v
+            tillWit     = takeWhile ((/=) $ fromJust witness) $ fst v
             (AtomicWord errName)   = name $ fromJust errCase
             (AtomicWord fName) = name witTPTP
             wName       = drop 12 fName
             contForm    = (formula witTPTP) .&. (formula $ fromJust errCase)
             contradict = mkTPTP ("contradict_"++wName) "plain" contForm [("contradiction_of",[fName, errName])]
         in
-            (mkNSATProof $ leaf $ tillWit ++ [witTPTP,contradict], m')
+            (mkNSATProof $ leaf $ flip (,) [] $ tillWit ++ [witTPTP,contradict], m')
     | isSATProof subTree    = (subTree, m'')
-    | otherwise             = (mkNSATProof $ v <|> subPTree, m'')
+    | otherwise             = (mkNSATProof $ (v) <|> subPTree, m'')
     where
-        (closed,nForms,witness, errCase, m')    = isClosedWithWitness v m forms
+        (closed,nForms,witness, errCase, m')    = isClosedWithWitness (fst v) m forms
         (subTree,m'')                           = proofSATFOTableau t m nForms
         subPTree                                = fromNSATProofT subTree
 proofSATFOTableau t m forms
     | closed                = 
         let
             witTPTP     = fromJust witness
-            tillWit     = takeWhile ((/=) $ fromJust witness) $ value t
+            tillWit     = takeWhile ((/=) $ fromJust witness) $ fst $ value t
             (AtomicWord errName)   = name $ fromJust errCase
             (AtomicWord fName) = name witTPTP
             wName       = drop 12 fName
             contForm    = (formula witTPTP) .&. (formula $ fromJust errCase)
             contradict = mkTPTP ("contradict_"++wName) "plain" contForm [("contradiction_of",[fName, errName])]
         in
-            (mkNSATProof $ leaf $ tillWit ++ [witTPTP,contradict],m')
+            (mkNSATProof $ leaf $ flip (,) [] $ tillWit ++ [witTPTP,contradict],m')
     | isSATProof proofLeft  = (proofLeft,m'')
     | isSATProof proofRight = (proofRight,m''')
     | otherwise             = (mkNSATProof $ leftPTree <# value t #> rightPTree, m''')
     where
-        (closed, nForms, witness, errCase, m')  = isClosedWithWitness (value t) m forms
+        (closed, nForms, witness, errCase, m')  = isClosedWithWitness (fst $ value t) m forms
         (proofLeft,m'')      = proofSATFOTableau (left t) m nForms
-        (proofRight, m''')   = proofSATFOTableau (right t) m nForms
+        (proofRight, m''')   = proofSATFOTableau (right t) (removeVarOccurance (snd $ value t) m'') nForms
         (leftPTree)  = fromNSATProofT proofLeft
         (rightPTree) = fromNSATProofT proofRight
 
@@ -249,6 +249,9 @@ fromNSATProofT = fromNSATproofT . getNSATProof0
 
 instance HasPretty (NSATProof FOTableau) where
   pretty (NSAT nsatproof) = Pretty.text "  [ tableau proof ]" $$ pretty nsatproof
+  
+instance (HasPretty ([TPTP_Input_ Identity], [V])) where
+  pretty (a,b) = pretty a
 
 -- | shorthands to use a tableau proofer
 proofFOT = proof (Picker simplePickFO)

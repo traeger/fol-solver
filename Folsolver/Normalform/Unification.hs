@@ -1,13 +1,18 @@
+{-# OPTIONS_GHC -XTypeSynonymInstances -XFlexibleInstances #-}
+
 module Folsolver.Normalform.Unification
     ( unifyFormula
     , unifyTerm
     , unifyEquals
     , variableRename
+    , removeVarOccurance
     ) where
 
 import Codec.TPTP
 import Data.Map (Map)
 import qualified Data.Map as M
+import Data.Set (Set)
+import qualified Data.Set as S
 
 import Data.Maybe
 
@@ -98,3 +103,52 @@ variableRenameT x y t   = case unwrapT t of
     Var v               -> if x == v then y else wrapT (Var v)
     FunApp fun args     -> wrapT $ FunApp fun (map (variableRenameT x y) args)
     _                   -> t
+
+-- | removes all substitutions where one of the variables occur
+-- | (in the left or in the right part of the substitution)
+removeVarOccurance :: [V] -> (Map V Term) -> (Map V Term)
+removeVarOccurance vars subst = 
+  let
+    varsSet = S.fromList vars
+    subst0 = foldr M.delete subst vars
+  in
+    M.filter (\ term -> not $ occurs varsSet term) subst0
+
+-- | occures vars term is true iff one variable in vars
+-- | is in the term
+occurs :: Set V -> Term -> Bool
+occurs vars term = not $ S.null $ S.intersection (variables term) vars
+
+-- all structures which has variables
+class HasVar a where
+  -- variables of such a structure
+  variables :: a -> Set V
+  
+instance HasVar Term where
+  variables t = case unwrapT t of
+    Var v              -> S.singleton v
+    FunApp fname terms -> S.unions $ map variables terms -- function
+    _                  -> S.empty
+
+instance HasVar Formula where
+  variables formulas = 
+    let 
+      terms = S.toList $ termsOfFormula formulas
+    in 
+      S.unions $ map variables terms
+      
+instance (HasVar a) => (HasVar [a]) where
+  variables as = S.unions $ map variables as
+  
+-- | get terms
+termsOfFormula :: Formula -> Set Term
+termsOfFormula formulas =
+  let
+    folder :: Formula -> Set Term
+    folder = foldF 
+      (\f0 -> folder f0)                               -- handle negation
+      (\_ _ f0 -> folder f0)                           -- handle quantification
+      (\f0 _ f1 -> S.union (folder f0) (folder f1))  -- handle bin op
+      (\t0 _ t1 -> S.fromList [t0, t1])              -- handle equality/inequality
+      (\_ ts -> S.fromList ts)                       -- handle predicates
+  in folder formulas
