@@ -6,6 +6,7 @@ module Main
  , module Codec.TPTP
  ) where
 
+
 import Folsolver.TPTP
 import Folsolver.Proofer
 import Folsolver.FOTableau
