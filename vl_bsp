@@ -27,5 +27,50 @@
          fof(contradict_292_1,plain,(~ (p(FreeVar_73_1)) & p(b)),[contradiction_of(genFunction_292_1,genFunction_9_2)]).]
 
 The input is a tautology.
-*Main> 
+
+*Main> pretty $ proofFOT $ parse "fof(con,conjecture,(![X,Y]:p(X) | p(Y))=>(?[X,Y]:p(X) & p(Y)))."
+    [ tableau proof ]
+  [fof(not_con,negated_conjecture,~ (((! [X,Y] : (p(X)) | p(Y)) => (? [X,Y] : (p(X)) & p(Y)))),negConjunction(con)).]
+  [fof(genFunction_1_1,plain,(! [X,Y] : (p(X)) | p(Y)),[alpha1('AtomicWord "not_con"')]).,
+   fof(genFunction_1_2,plain,~ ((? [X,Y] : (p(X)) & p(Y))),[alpha2('AtomicWord "not_con"')]).]
+    [fof(genFunction_4_1,plain,! [X,Y] : (p(X)),[beta1('AtomicWord "genFunction_1_1"')]).]
+      [fof(genFunction_8_1,plain,~ (? [X,Y] : (p(X))),[beta1('AtomicWord "genFunction_1_2"')]).]
+      [fof(genFunction_8_1,plain,! [Y] : (p(FreeVar_8_1)),[gamma(genFunction_4_1)]).]
+      [fof(genFunction_16_1,plain,~ (? [Y] : (p(FreeVar_16_1))),[gamma(genFunction_8_1)]).]
+      [fof(genFunction_32_1,plain,p(FreeVar_8_1),[gamma(genFunction_8_1)]).]
+      [fof(genFunction_64_1,plain,~ (p(FreeVar_16_1)),[gamma(genFunction_16_1)]).,
+       fof(contradict_64_1,plain,(~ (p(FreeVar_16_1)) & p(FreeVar_8_1)),[contradiction_of(genFunction_64_1,genFunction_32_1)]).]
+      [fof(genFunction_9_1,plain,~ (p(Y)),[beta2('AtomicWord "genFunction_1_2"')]).]
+      [fof(genFunction_9_1,plain,! [Y] : (p(FreeVar_9_1)),[gamma(genFunction_4_1)]).]
+      [fof(genFunction_18_1,plain,p(FreeVar_9_1),[gamma(genFunction_9_1)]).,
+       fof(contradict_18_1,plain,(p(FreeVar_9_1) & ~ (p(Y))),[contradiction_of(genFunction_18_1,genFunction_9_1)]).]
+    [fof(genFunction_5_1,plain,p(Y),[beta2('AtomicWord "genFunction_1_1"')]).]
+      [fof(genFunction_10_1,plain,~ (? [X,Y] : (p(X))),[beta1('AtomicWord "genFunction_1_2"')]).]
+      [fof(genFunction_10_1,plain,~ (? [Y] : (p(FreeVar_10_1))),[gamma(genFunction_10_1)]).]
+      [fof(genFunction_20_1,plain,~ (p(FreeVar_10_1)),[gamma(genFunction_10_1)]).,
+       fof(contradict_20_1,plain,(~ (p(FreeVar_10_1)) & p(Y)),[contradiction_of(genFunction_20_1,genFunction_5_1)]).]
+      [fof(genFunction_11_1,plain,~ (p(Y)),[beta2('AtomicWord "genFunction_1_2"')]).,
+       fof(contradict_11_1,plain,(~ (p(Y)) & p(Y)),[contradiction_of(genFunction_11_1,genFunction_5_1)]).]
+
+The input is a tautology.
+
+*Main> pretty $ proofFOT $ parse "fof(con,conjecture,(![X,Y]:p(X) | p(Y))=>(?[X,Y]:p(X) | p(Y)))."
+    [ tableau proof ]
+  [fof(not_con,negated_conjecture,~ (((! [X,Y] : (p(X)) | p(Y)) => (? [X,Y] : (p(X)) | p(Y)))),negConjunction(con)).]
+  [fof(genFunction_1_1,plain,(! [X,Y] : (p(X)) | p(Y)),[alpha1('AtomicWord "not_con"')]).,
+   fof(genFunction_1_2,plain,~ ((? [X,Y] : (p(X)) | p(Y))),[alpha2('AtomicWord "not_con"')]).]
+    [fof(genFunction_4_1,plain,! [X,Y] : (p(X)),[beta1('AtomicWord "genFunction_1_1"')]).]
+    [fof(genFunction_4_1,plain,~ (? [X,Y] : (p(X))),[alpha1('AtomicWord "genFunction_1_2"')]).,
+     fof(genFunction_4_2,plain,~ (p(Y)),[alpha2('AtomicWord "genFunction_1_2"')]).]
+    [fof(genFunction_8_2,plain,! [Y] : (p(FreeVar_8_2)),[gamma(genFunction_4_1)]).]
+    [fof(genFunction_16_1,plain,~ (? [Y] : (p(FreeVar_16_1))),[gamma(genFunction_4_1)]).]
+    [fof(genFunction_32_1,plain,p(FreeVar_8_2),[gamma(genFunction_8_2)]).,
+     fof(contradict_32_1,plain,(p(FreeVar_8_2) & ~ (p(Y))),[contradiction_of(genFunction_32_1,genFunction_4_2)]).]
+    [fof(genFunction_5_1,plain,p(Y),[beta2('AtomicWord "genFunction_1_1"')]).]
+    [fof(genFunction_5_1,plain,~ (? [X,Y] : (p(X))),[alpha1('AtomicWord "genFunction_1_2"')]).,
+     fof(genFunction_5_2,plain,~ (p(Y)),[alpha2('AtomicWord "genFunction_1_2"')]).,
+     fof(contradict_5_2,plain,(~ (p(Y)) & p(Y)),[contradiction_of(genFunction_5_2,genFunction_5_1)]).]
+
+The input is a tautology.
+
 

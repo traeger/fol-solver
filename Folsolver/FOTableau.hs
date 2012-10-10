@@ -44,21 +44,34 @@ tableauFO
   :: ([FOForm] -> [FOForm] -> (FOForm, [FOForm], [FOForm]))  -- pick function fuer die naechste formula
   -> [TPTP_Input]  -- noch zu nutztende formulas
   -> FOTableau
-tableauFO pick formulas = tableau0 (pick) 1 simple compl (leaf formulas)
+tableauFO pick formulas = tableau0 (pick) emptyWalk 1 simple compl (leaf formulas)
     where
         (simple,compl) = initFormulas formulas
         initFormulas :: [TPTP_Input] -> ([FOForm],[FOForm])
         initFormulas xs = (map (\x -> (x,[])) $ filter (isAlphaFormula . formula) xs ++ filter (\x -> (isSimple . formula) x && (not (isAlphaFormula $ formula  x))) xs, map (\x -> (x,[])) $ filter (isQuant . formula) xs)
 
+type WalkDir    = ([Bool],[Bool],Map TPTP_Input Bool)
+changeDir :: TPTP_Input -> WalkDir -> WalkDir
+changeDir f (x,y,m)
+    | M.member f m  = let b = (fromJust $ M.lookup f m) in (x, b:y, M.insert f (not b) m)
+    | otherwise     = (x, True:y, M.insert f True m)
+getDir :: WalkDir -> (Bool, WalkDir)
+getDir ([],[],m)        = (True,([],[],m))
+getDir ([],ys,m)        = let (x:xs) = reverse ys in (x,(xs,[],m))
+getDir ((x:xs),ys,m)    = (x,(xs,ys,m))
+emptyWalk :: WalkDir
+emptyWalk = ([],[],M.empty)
+
 tableau0
   :: ([FOForm] -> [FOForm] -> (FOForm, [FOForm],[FOForm]))  -- pick function fuer die naechste formula
+  -> WalkDir
   -> Integer        -- Position in the tree
   -> [FOForm]  -- noch nicht genutzten formulas
   -> [FOForm]  -- quantifizierte formulas
   -> FOTableau    -- kurzzeitiges Tableau (brauchen wir fuer mehrere alpha schritte)
   -> FOTableau
-tableau0 pick pos [] [] t           = t
-tableau0 pick pos formulas quans t    = 
+tableau0 pick w pos [] [] t           = t
+tableau0 pick w pos formulas quans t    = 
   let
     nameFun p q = "genFunction_"++(show p)++"_"++(show q)
     ((f,v),fs,qs) = pick formulas quans
@@ -71,18 +84,19 @@ tableau0 pick pos formulas quans t    =
             in
                 if (length $ value t) > maxNodeLength
                 then
-                    tableau0 pick pos (fs++[(at1,v),(at2,v)]) qs (leaf $ value t ++ [at1, at2])
+                    tableau0 pick w pos (fs++[(at1,v),(at2,v)]) qs (leaf $ value t ++ [at1, at2])
                 else
-                    value t <|> tableau0 pick (2*pos) (fs++[(at1,v),(at2,v)]) qs (leaf [at1,at2]) 
+                    value t <|> tableau0 pick w (2*pos) (fs++[(at1,v),(at2,v)]) qs (leaf [at1,at2]) 
     BetaR b1 b2  
         -> 
             let
+                (dir,newWalk)   = getDir w
                 bt1 = mkTPTP (nameFun (pos * 2) 1) "plain" b1 [("beta1",[show.name $ f])]
                 bt2 = mkTPTP (nameFun ((2*pos)+1) 1) "plain" b2 [("beta2",[show.name $ f])]
-                t1 = tableau0 pick (2*pos) (fs++[(bt1,v)]) qs (leaf [bt1])
-                t2 = tableau0 pick (2*pos + 1) (fs++[(bt2,v)]) qs (leaf [bt2])
+                t1 = tableau0 pick newWalk (2*pos) (fs++[(bt1,v)]) qs (leaf [bt1])
+                t2 = tableau0 pick newWalk (2*pos + 1) (fs++[(bt2,v)]) qs (leaf [bt2])
             in
-                t1  <# value t #> t2
+                if dir then t1  <# value t #> t2 else t2 <# value t #> t1
     DNegate n   
         ->
             let
@@ -90,25 +104,26 @@ tableau0 pick pos formulas quans t    =
             in
                 if (length $ value t) > maxNodeLength
                 then
-                    tableau0 pick pos (fs++[(f1,v)]) qs (leaf $ value t ++ [f1])                    -- handle double negate
+                    tableau0 pick w pos (fs++[(f1,v)]) qs (leaf $ value t ++ [f1])                    -- handle double negate
                 else
-                    value t <|> tableau0 pick (2*pos) (fs++[(f1,v)]) qs (leaf [f1])
+                    value t <|> tableau0 pick w (2*pos) (fs++[(f1,v)]) qs (leaf [f1])
     AtomR _     
-        -> tableau0 pick pos fs qs t
+        -> tableau0 pick w pos fs qs t
     GammaR form var
         ->
             let
+                newDir      = changeDir f w
                 (AtomicWord oldName)    = name f
                 newFunName  = "genFunction_"++show pos++"_"++(show $ length $ value t)
-                varName = V $ "FreeVar_"++show pos++"_"++(show $ length $ value t)
-                rename  = variableRename var (T $ Identity $ Var varName) form
-                next    = mkTPTP newFunName "plain" rename [("gamma",[oldName])]
+                varName     = V $ "FreeVar_"++show pos++"_"++(show $ length $ value t)
+                rename      = variableRename var (T $ Identity $ Var varName) form
+                next        = mkTPTP newFunName "plain" rename [("gamma",[oldName])]
             in 
                 if (length $ value t) > maxNodeLength
                 then
-                    tableau0 pick pos (fs++[(next,varName:v)]) (qs++[(f,v)]) t
+                    tableau0 pick newDir pos (fs++[(next,varName:v)]) (qs++[(f,v)]) t
                 else
-                    value t <|> tableau0 pick (2*pos) (fs++[(next,varName:v)]) (qs++[(f,v)]) (leaf [next])
+                    value t <|> tableau0 pick newDir (2*pos) (fs++[(next,varName:v)]) (qs++[(f,v)]) (leaf [next])
     DeltaR form var 
         -> 
             let
@@ -121,9 +136,9 @@ tableau0 pick pos formulas quans t    =
             in
                 if (length $ value t) > maxNodeLength
                 then
-                    tableau0 pick pos (fs++[(next,v)]) qs t
+                    tableau0 pick w pos (fs++[(next,v)]) qs t
                 else
-                    value t <|> tableau0 pick (2*pos) (fs++[(next,v)]) qs (leaf [next])
+                    value t <|> tableau0 pick w (2*pos) (fs++[(next,v)]) qs (leaf [next])
   --  _   -> tableau0 pick pos fs qs t
 
 type Sub5t1tut0r = Map V Term
