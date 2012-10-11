@@ -41,8 +41,8 @@ data Proof p = SAT [Formula] | NSAT (NSATProof p) | TAUTOLOGY (NSATProof p) | CO
 instance HasPretty (NSATProof p) => HasPretty (Proof p) where
   pretty (SAT witness)            = Pretty.text "The input is satisfiable: (Assignment)" $$ Pretty.nest 2 (pretty witness)
   pretty (NSAT nsatproof)         = Pretty.nest 2 (pretty nsatproof) $$ Pretty.text "\nThe input is not satisfiable."
-  pretty (TAUTOLOGY nsatproof)    = Pretty.nest 2 (pretty nsatproof) $$ Pretty.text "\nThe input is a tautology."
-  pretty (CONTRADICTION witness)  = Pretty.text "The input is a contradiction: (Assignment)" $$ Pretty.nest 2 (pretty witness)
+  pretty (TAUTOLOGY nsatproof)    = Pretty.nest 2 (pretty nsatproof) $$ Pretty.text "\nSZS Status Theorem."
+  pretty (CONTRADICTION witness)  = Pretty.text "SZS Status CounterSatisfiable: (Assignment)" $$ Pretty.nest 2 (pretty witness)
 class (Proofer p) => IsProof a p where
   mkProof :: a -> Proof p
 

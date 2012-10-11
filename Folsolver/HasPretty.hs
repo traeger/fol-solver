@@ -19,7 +19,7 @@ instance (HasPretty a) => HasPretty [a] where
   pretty as = Pretty.brackets $ Pretty.cat $ (Pretty.punctuate Pretty.comma) $ map pretty as
 
 instance (HasPretty a, HasPretty b) => HasPretty (a,b) where
-  pretty (a,b) = Pretty.brackets $ pretty a <> Pretty.comma <> pretty b
+  pretty (a,b) = Pretty.parens $ pretty a <> Pretty.comma <> pretty b
 
 instance (HasPretty a) => HasPretty (Set a) where
   pretty as = pretty $ Set.toList as

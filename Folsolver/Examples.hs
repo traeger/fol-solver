@@ -3,6 +3,7 @@ module Folsolver.Examples where
 import System.IO
 import System.IO.Unsafe
 import Codec.TPTP
+import System.Directory
 
 readExample :: String -> IO [TPTP_Input]
 readExample filename = do
@@ -27,3 +28,13 @@ agatha = readExampleUnsafe "Data/Examples/agatha.tptp"
 
 arithmetic1 = readExampleUnsafe "Data/Examples/arithmetic1.tptp"
 arithmetic2 = readExampleUnsafe "Data/Examples/arithmetic2.tptp"
+
+counter1 = readExampleUnsafe "Data/Examples/Counter/counter1.tptp"
+
+counters = readDirUnsafe "Data/Examples/Counter/SYN/"
+
+readDirUnsafe :: String -> [[TPTP_Input]]
+readDirUnsafe dir = unsafePerformIO $ do
+  dirs <- getDirectoryContents dir
+  let cs = map readExampleUnsafe $ filter (unsafePerformIO . doesFileExist) $ map (dir ++ ) $ dirs 
+  return cs
