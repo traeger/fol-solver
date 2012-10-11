@@ -178,7 +178,7 @@ proofSATFOTableau (SNode t v) m forms
             (AtomicWord errName)   = name $ fromJust errCase
             (AtomicWord fName) = name witTPTP
             wName       = drop 12 fName
-            contForm    = (formula witTPTP) .&. (formula $ fromJust errCase)
+            contForm    = (applySub m' $ formula witTPTP) .&. (applySub m' $ formula $ fromJust errCase)
             contradict = mkTPTP ("contradict_"++wName) "plain" contForm [("contradiction_of",[fName, errName])]
         in
             (mkNSATProof $ leaf $ [witTPTP,contradict], m' )

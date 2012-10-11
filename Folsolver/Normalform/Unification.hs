@@ -54,16 +54,16 @@ unifyTerm
 unifyTerm Nothing _ _
     = Nothing
 unifyTerm m'@(Just m) a b   = case (unwrapT a, unwrapT b) of
-    (Var v1, Var v2)            -> case (M.lookup v1 m, M.lookup v2 m) of
+    (Var v1, Var v2)            -> if v1 == v2 then Nothing else case (M.lookup v1 m, M.lookup v2 m) of
         (Nothing, Nothing)  -> Just (M.insert v1 b m)
-        (Just t1, Nothing)  -> if containsT v2 t1 then Nothing else Just (M.insert v2 t1 m)
-        (Nothing, Just t2)  -> if containsT v1 t2 then Nothing else Just (M.insert v1 t2 m)
+        (Just t1, Nothing)  -> unifyTerm m' t1 b
+        (Nothing, Just t2)  -> unifyTerm m' a t2
         (Just t1, Just t2)  -> unifyTerm m' t1 t2
     (Var v1, NumberLitTerm t)   -> case M.lookup v1 m of
         Nothing             -> Just (M.insert v1 b m)
-        (Just t2)           -> if t2 == b then m' else unifyTerm m' t2 b
+        (Just t2)           -> unifyTerm m' t2 b
     (Var v1, FunApp fun args)   -> case M.lookup v1 m of
-        Nothing             -> if containsT v1 b then Nothing else Just (M.insert v1 b m)
+        Nothing             -> if containsT  v1 (applySubT m b) then Nothing else Just (M.insert v1 b m)
         (Just t1)           -> unifyTerm m' t1 b
     (NumberLitTerm t, Var v1)   -> unifyTerm m' b a
     (FunApp fun args, Var v1)   -> unifyTerm m' b a
@@ -114,11 +114,20 @@ applySub m f    = case unwrapF f of
     (:~:) f0                -> (.~.) (applySub m f0)
 
 applySubT :: (Map V Term) -> Term -> Term
-applySubT m t   = case unwrapT t of
-    Var v               -> M.findWithDefault t v m
-    FunApp fun args     -> wrapT $ FunApp fun (map (applySubT m) args)
+applySubT m t = fix (applySubT' m) t
+
+applySubT' :: (Map V Term) -> Term -> Term
+applySubT' m t   = case unwrapT t of
+    Var v               -> (M.findWithDefault t v m)
+    FunApp fun args     -> wrapT $ FunApp fun (map (applySubT' m) args)
     _                   -> t
 
+fix f a = let b = f a in
+    if a == b
+    then
+        a
+    else
+        fix f b
 
 -- | removes all substitutions where one of the variables occur
 -- | (in the left or in the right part of the substitution)
