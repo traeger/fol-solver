@@ -17,8 +17,10 @@ import Data.Set (Set)
 import qualified Data.Set as S
 import Data.Map (Map)
 import qualified Data.Map as M
-import Data.Maybe (fromJust, fromMaybe)
+import Data.Maybe (fromJust, fromMaybe, isNothing)
 import Data.List (nub)
+
+import Control.Arrow(second)
 
 import Data.Functor.Identity
 
@@ -81,11 +83,12 @@ tableau0 pick (spos, dpos) formulas udm tc  =
     BetaR b1 b2  
         -> 
             let
+                udm'    = foldr M.delete udm (S.toList uniFormVars)
                 bt1 = mkTPTP (nameFun (spos*2) 1) "plain" b1 [("beta1",[sAN.name $ f])]
                 bt2 = mkTPTP (nameFun ((2*spos)+1) 1) "plain" b2 [("beta2",[sAN.name $ f])]
-                t1 = tableau0 pick (2*spos, 1) (fs++[(bt1,v,S.empty)]) udm (mkTC bt1)
-                t2 = tableau0 pick (2*spos + 1, 1) (fs++[(bt2,v,S.empty)]) udm (mkTC bt2)
-                quantDequantTuplesToDelete = map (\v -> (v, fromJust $ M.lookup v udm) ) $ S.toList uniFormVars
+                t1 = tableau0 pick (2*spos, 1) (fs++[(bt1,v,S.empty)]) udm' (mkTC bt1)
+                t2 = tableau0 pick (2*spos + 1, 1) (fs++[(bt2,v,S.empty)]) udm'  (mkTC bt2)
+                quantDequantTuplesToDelete = map (second fromJust) $ filter (not . isNothing . snd) $ map (\v -> (v, M.lookup v udm) ) $ S.toList uniFormVars
             in
                 t1 <# foldr (flip ($*$)) (tc) quantDequantTuplesToDelete #> t2
     DNegate n   
@@ -197,7 +200,7 @@ proofSATFOTableau t m forms
             (AtomicWord errName)   = name $ fromJust errCase
             (AtomicWord fName) = name witTPTP
             wName       = drop 12 fName
-            contForm    = (formula witTPTP) .&. (formula $ fromJust errCase)
+            contForm    = (applySub m' $ formula witTPTP) .&. (applySub m' $ formula $ fromJust errCase)
             contradict = mkTPTP ("contradict_"++wName) "plain" contForm [("contradiction_of",[fName, errName])]
         in
             (mkNSATProof $ (formTCT t) <|> leaf contradict,m')
