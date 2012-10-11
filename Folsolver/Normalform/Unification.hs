@@ -6,6 +6,7 @@ module Folsolver.Normalform.Unification
     , unifyEquals
     , variableRename
     , removeVarOccurance
+    , applySub
     ) where
 
 import Codec.TPTP
@@ -103,6 +104,21 @@ variableRenameT x y t   = case unwrapT t of
     Var v               -> if x == v then y else wrapT (Var v)
     FunApp fun args     -> wrapT $ FunApp fun (map (variableRenameT x y) args)
     _                   -> t
+
+applySub :: (Map V Term) -> Formula -> Formula
+applySub m f    = case unwrapF f of
+    (BinOp f1 op f2)        -> wrapF $ BinOp (applySub m f1) op (applySub m f2)
+    (Quant q v f0)          -> wrapF $ Quant q v (applySub (foldr M.delete m v) f0)
+    (InfixPred t1 op t2)    -> wrapF $ InfixPred (applySubT m t1) op (applySubT m t2)
+    (PredApp fun args)      -> wrapF $ PredApp fun (map (applySubT m) args)
+    (:~:) f0                -> (.~.) (applySub m f0)
+
+applySubT :: (Map V Term) -> Term -> Term
+applySubT m t   = case unwrapT t of
+    Var v               -> M.findWithDefault t v m
+    FunApp fun args     -> wrapT $ FunApp fun (map (applySubT m) args)
+    _                   -> t
+
 
 -- | removes all substitutions where one of the variables occur
 -- | (in the left or in the right part of the substitution)
