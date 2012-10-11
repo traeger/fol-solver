@@ -22,7 +22,7 @@ quant1 = readExampleUnsafe "Data/Examples/quant_1.tptp"
 quant2 = readExampleUnsafe "Data/Examples/quant_2.tptp"
 quant3 = readExampleUnsafe "Data/Examples/quant_3.tptp"
 quant4 = readExampleUnsafe "Data/Examples/quant_4.tptp"
-quant5 = readExampleUnsafe "Data/Examples/quant_5.tptp"
+quant5 = readExampleUnsafe "Data/Examples/Cant/quant_5.tptp"
 
 agatha = readExampleUnsafe "Data/Examples/agatha.tptp"
 
@@ -32,10 +32,18 @@ arithmetic3 = readExampleUnsafe "Data/Examples/arithmetic3.tptp"
 
 counter1 = readExampleUnsafe "Data/Examples/Counter/counter1.tptp"
 
-counters = readDirUnsafe "Data/Examples/Counter/SYN/"
+counters = map snd countersS
+examples = map snd examplesS
+cant = map snd cantS
 
-readDirUnsafe :: String -> [[TPTP_Input]]
+countersS = readDirUnsafe "Data/Examples/Counter/SYN/"
+examplesS = readDirUnsafe "Data/Examples/"
+cantS = readDirUnsafe "Data/Examples/Cant/"
+
+readDirUnsafe :: String -> [(AtomicWord, [TPTP_Input])]
 readDirUnsafe dir = unsafePerformIO $ do
-  dirs <- getDirectoryContents dir
-  let cs = map readExampleUnsafe $ filter (unsafePerformIO . doesFileExist) $ map (dir ++ ) $ dirs 
+  files <- getDirectoryContents dir
+  let files0 = map (dir ++ ) $ files
+  let files1 = filter (unsafePerformIO . doesFileExist) $ files0
+  let cs = zip (map AtomicWord files1) (map readExampleUnsafe $ files1)
   return cs
