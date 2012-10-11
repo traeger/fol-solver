@@ -1,11 +1,13 @@
+-- note
+-- with the new "universal variable" implementation, this does not terminate.
+
+
 fof(church_46_2_2,conjecture,? [X] : (! [Y] : ((big_f(X) <=> big_f(Y))))).
 
 
 
 
-
-
-
+-- with old "universal variable" implementation
 
 [    [ tableau proof ]
   ([fof(not_church_46_2_2,negated_conjecture,~ (? [X] : (! [Y] : ((big_f(X) <=> big_f(Y))))),negConjunction(church_46_2_2)).],[])

@@ -1,0 +1,96 @@
+%--------------------------------------------------------------------------,
+ % File     : SYN329+1 : TPTP v5.0.0. Released v2.0.0.,
+ % Domain   : Syntactic,
+ % Problem  : Church problem 46.14 (1),
+ % Version  : Especial.,
+ % English  :,
+ % Refs     : [Chu56] Church (1956), Introduction to Mathematical Logic I,
+ % Source   : [Chu56],
+ % Names    : 46.14 (1) [Chu56],
+ % Status   : CounterSatisfiable,
+ % Rating   : 0.12 v5.0.0, 0.00 v4.1.0, 0.17 v4.0.1, 0.00 v3.1.0, 0.33 v2.6.0, 0.25 v2.5.0, 0.33 v2.4.0, 0.00 v2.1.0,
+ % Syntax   : Number of formulae    :    1 (   0 unit),
+ %            Number of atoms       :    4 (   0 equality),
+ %            Maximal formula depth :    7 (   7 average),
+ %            Number of connectives :    3 (   0 ~  ;   0  |;   0  &),
+ %                                         (   0 <=>;   3 =>;   0 <=),
+ %                                         (   0 <~>;   0 ~|;   0 ~&),
+ %            Number of predicates  :    1 (   0 propositional; 2-2 arity),
+ %            Number of functors    :    0 (   0 constant; --- arity),
+ %            Number of variables   :    3 (   0 singleton;   1 !;   2 ?),
+ %            Maximal term depth    :    1 (   1 average),
+ % SPC      : FOF_CSA_RFO_NEQ,
+ % Comments :,
+ %--------------------------------------------------------------------------,
+ fof(church_46_14_1,conjecture,? [X,Y] : (! [Z] : ((big_f(X,X) => (big_f(Y,Y) => (big_f(X,Z) => big_f(Z,Y))))))).]
+
+
+
+
+
+*Main> pretty $ proofFOT $ counters !! 4
+    [ tableau proof ]
+  ([fof(not_church_46_14_1,negated_conjecture,~ (? [X,Y] : (! [Z] : ((big_f(X,X) => (big_f(Y,Y) => (big_f(X,Z) => big_f(Z,Y))))))),negConjunction(church_46_14_1)).],[])
+  ([fof(genFunction_1_1,plain,~ (? [Y] : (! [Z] : ((big_f(FreeVar_1_1,FreeVar_1_1) => (big_f(Y,Y) => (big_f(FreeVar_1_1,Z) => big_f(Z,Y))))))),[gamma(not_church_46_14_1)]).],[])
+  ([fof(genFunction_2_1,plain,~ (! [Z] : ((big_f(FreeVar_1_1,FreeVar_1_1) => (big_f(FreeVar_2_1,FreeVar_2_1) => (big_f(FreeVar_1_1,Z) => big_f(Z,FreeVar_2_1)))))),[gamma(genFunction_1_1)]).],[])
+  ([fof(genFunction_4_1,plain,~ (? [Y] : (! [Z] : ((big_f(FreeVar_4_1,FreeVar_4_1) => (big_f(Y,Y) => (big_f(FreeVar_4_1,Z) => big_f(Z,Y))))))),[gamma(not_church_46_14_1)]).],[])
+  ([fof(genFunction_8_1,plain,~ ((big_f(FreeVar_1_1,FreeVar_1_1) => (big_f(FreeVar_2_1,FreeVar_2_1) => (big_f(FreeVar_1_1,skolFun_8_1(FreeVar_2_1,FreeVar_1_1)) => big_f(skolFun_8_1(FreeVar_2_1,FreeVar_1_1),FreeVar_2_1))))),[delta(genFunction_2_1)]).],[])
+  ([fof(genFunction_16_1,plain,~ (! [Z] : ((big_f(FreeVar_1_1,FreeVar_1_1) => (big_f(FreeVar_16_1,FreeVar_16_1) => (big_f(FreeVar_1_1,Z) => big_f(Z,FreeVar_16_1)))))),[gamma(genFunction_1_1)]).],[])
+  ([fof(genFunction_32_1,plain,~ (! [Z] : ((big_f(FreeVar_4_1,FreeVar_4_1) => (big_f(FreeVar_32_1,FreeVar_32_1) => (big_f(FreeVar_4_1,Z) => big_f(Z,FreeVar_32_1)))))),[gamma(genFunction_4_1)]).],[])
+  ([fof(genFunction_64_1,plain,~ (? [Y] : (! [Z] : ((big_f(FreeVar_64_1,FreeVar_64_1) => (big_f(Y,Y) => (big_f(FreeVar_64_1,Z) => big_f(Z,Y))))))),[gamma(not_church_46_14_1)]).],[])
+  ([fof(genFunction_128_1,plain,big_f(FreeVar_1_1,FreeVar_1_1),[alpha1(genFunction_8_1)]).,
+    fof(genFunction_128_2,plain,~ ((big_f(FreeVar_2_1,FreeVar_2_1) => (big_f(FreeVar_1_1,skolFun_8_1(FreeVar_2_1,FreeVar_1_1)) => big_f(skolFun_8_1(FreeVar_2_1,FreeVar_1_1),FreeVar_2_1)))),[alpha2(genFunction_8_1)]).],[])
+  ([fof(genFunction_256_2,plain,~ ((big_f(FreeVar_1_1,FreeVar_1_1) => (big_f(FreeVar_16_1,FreeVar_16_1) => (big_f(FreeVar_1_1,skolFun_256_2(FreeVar_16_1,FreeVar_1_1)) => big_f(skolFun_256_2(FreeVar_16_1,FreeVar_1_1),FreeVar_16_1))))),[delta(genFunction_16_1)]).],[])
+  ([fof(genFunction_512_1,plain,~ (! [Z] : ((big_f(FreeVar_1_1,FreeVar_1_1) => (big_f(FreeVar_512_1,FreeVar_512_1) => (big_f(FreeVar_1_1,Z) => big_f(Z,FreeVar_512_1)))))),[gamma(genFunction_1_1)]).],[])
+  ([fof(genFunction_1024_1,plain,~ ((big_f(FreeVar_4_1,FreeVar_4_1) => (big_f(FreeVar_32_1,FreeVar_32_1) => (big_f(FreeVar_4_1,skolFun_1024_1(FreeVar_32_1,FreeVar_4_1)) => big_f(skolFun_1024_1(FreeVar_32_1,FreeVar_4_1),FreeVar_32_1))))),[delta(genFunction_32_1)]).],[])
+  ([fof(genFunction_2048_1,plain,~ (! [Z] : ((big_f(FreeVar_4_1,FreeVar_4_1) => (big_f(FreeVar_2048_1,FreeVar_2048_1) => (big_f(FreeVar_4_1,Z) => big_f(Z,FreeVar_2048_1)))))),[gamma(genFunction_4_1)]).],[])
+  ([fof(genFunction_4096_1,plain,~ (! [Z] : ((big_f(FreeVar_64_1,FreeVar_64_1) => (big_f(FreeVar_4096_1,FreeVar_4096_1) => (big_f(FreeVar_64_1,Z) => big_f(Z,FreeVar_4096_1)))))),[gamma(genFunction_64_1)]).],[])
+  ([fof(genFunction_8192_1,plain,~ (? [Y] : (! [Z] : ((big_f(FreeVar_8192_1,FreeVar_8192_1) => (big_f(Y,Y) => (big_f(FreeVar_8192_1,Z) => big_f(Z,Y))))))),[gamma(not_church_46_14_1)]).],[])
+  ([fof(genFunction_16384_1,plain,big_f(FreeVar_2_1,FreeVar_2_1),[alpha1(genFunction_128_2)]).,
+    fof(genFunction_16384_2,plain,~ ((big_f(FreeVar_1_1,skolFun_8_1(FreeVar_2_1,FreeVar_1_1)) => big_f(skolFun_8_1(FreeVar_2_1,FreeVar_1_1),FreeVar_2_1))),[alpha2(genFunction_128_2)]).],[])
+  ([fof(genFunction_32768_2,plain,big_f(FreeVar_1_1,FreeVar_1_1),[alpha1(genFunction_256_2)]).,
+    fof(genFunction_32768_3,plain,~ ((big_f(FreeVar_16_1,FreeVar_16_1) => (big_f(FreeVar_1_1,skolFun_256_2(FreeVar_16_1,FreeVar_1_1)) => big_f(skolFun_256_2(FreeVar_16_1,FreeVar_1_1),FreeVar_16_1)))),[alpha2(genFunction_256_2)]).],[])
+  ([fof(genFunction_65536_2,plain,~ ((big_f(FreeVar_1_1,FreeVar_1_1) => (big_f(FreeVar_512_1,FreeVar_512_1) => (big_f(FreeVar_1_1,skolFun_65536_2(FreeVar_512_1,FreeVar_1_1)) => big_f(skolFun_65536_2(FreeVar_512_1,FreeVar_1_1),FreeVar_512_1))))),[delta(genFunction_512_1)]).],[])
+  ([fof(genFunction_131072_1,plain,~ (! [Z] : ((big_f(FreeVar_1_1,FreeVar_1_1) => (big_f(FreeVar_131072_1,FreeVar_131072_1) => (big_f(FreeVar_1_1,Z) => big_f(Z,FreeVar_131072_1)))))),[gamma(genFunction_1_1)]).],[])
+  ([fof(genFunction_262144_1,plain,big_f(FreeVar_4_1,FreeVar_4_1),[alpha1(genFunction_1024_1)]).,
+    fof(genFunction_262144_2,plain,~ ((big_f(FreeVar_32_1,FreeVar_32_1) => (big_f(FreeVar_4_1,skolFun_1024_1(FreeVar_32_1,FreeVar_4_1)) => big_f(skolFun_1024_1(FreeVar_32_1,FreeVar_4_1),FreeVar_32_1)))),[alpha2(genFunction_1024_1)]).],[])
+  ([fof(genFunction_524288_2,plain,~ ((big_f(FreeVar_4_1,FreeVar_4_1) => (big_f(FreeVar_2048_1,FreeVar_2048_1) => (big_f(FreeVar_4_1,skolFun_524288_2(FreeVar_2048_1,FreeVar_4_1)) => big_f(skolFun_524288_2(FreeVar_2048_1,FreeVar_4_1),FreeVar_2048_1))))),[delta(genFunction_2048_1)]).],[])
+  ([fof(genFunction_1048576_1,plain,~ (! [Z] : ((big_f(FreeVar_4_1,FreeVar_4_1) => (big_f(FreeVar_1048576_1,FreeVar_1048576_1) => (big_f(FreeVar_4_1,Z) => big_f(Z,FreeVar_1048576_1)))))),[gamma(genFunction_4_1)]).],[])
+  ([fof(genFunction_2097152_1,plain,~ ((big_f(FreeVar_64_1,FreeVar_64_1) => (big_f(FreeVar_4096_1,FreeVar_4096_1) => (big_f(FreeVar_64_1,skolFun_2097152_1(FreeVar_4096_1,FreeVar_64_1)) => big_f(skolFun_2097152_1(FreeVar_4096_1,FreeVar_64_1),FreeVar_4096_1))))),[delta(genFunction_4096_1)]).],[])
+  ([fof(genFunction_4194304_1,plain,~ (! [Z] : ((big_f(FreeVar_64_1,FreeVar_64_1) => (big_f(FreeVar_4194304_1,FreeVar_4194304_1) => (big_f(FreeVar_64_1,Z) => big_f(Z,FreeVar_4194304_1)))))),[gamma(genFunction_64_1)]).],[])
+  ([fof(genFunction_8388608_1,plain,~ (! [Z] : ((big_f(FreeVar_8192_1,FreeVar_8192_1) => (big_f(FreeVar_8388608_1,FreeVar_8388608_1) => (big_f(FreeVar_8192_1,Z) => big_f(Z,FreeVar_8388608_1)))))),[gamma(genFunction_8192_1)]).],[])
+  ([fof(genFunction_16777216_1,plain,~ (? [Y] : (! [Z] : ((big_f(FreeVar_16777216_1,FreeVar_16777216_1) => (big_f(Y,Y) => (big_f(FreeVar_16777216_1,Z) => big_f(Z,Y))))))),[gamma(not_church_46_14_1)]).],[])
+  ([fof(genFunction_33554432_1,plain,big_f(FreeVar_1_1,skolFun_8_1(FreeVar_2_1,FreeVar_1_1)),[alpha1(genFunction_16384_2)]).,
+    fof(genFunction_33554432_2,plain,~ (big_f(skolFun_8_1(FreeVar_2_1,FreeVar_1_1),FreeVar_2_1)),[alpha2(genFunction_16384_2)]).],[])
+  ([fof(genFunction_67108864_2,plain,big_f(FreeVar_16_1,FreeVar_16_1),[alpha1(genFunction_32768_3)]).,
+    fof(genFunction_67108864_3,plain,~ ((big_f(FreeVar_1_1,skolFun_256_2(FreeVar_16_1,FreeVar_1_1)) => big_f(skolFun_256_2(FreeVar_16_1,FreeVar_1_1),FreeVar_16_1))),[alpha2(genFunction_32768_3)]).],[])
+  ([fof(genFunction_134217728_2,plain,big_f(FreeVar_1_1,FreeVar_1_1),[alpha1(genFunction_65536_2)]).,
+    fof(genFunction_134217728_3,plain,~ ((big_f(FreeVar_512_1,FreeVar_512_1) => (big_f(FreeVar_1_1,skolFun_65536_2(FreeVar_512_1,FreeVar_1_1)) => big_f(skolFun_65536_2(FreeVar_512_1,FreeVar_1_1),FreeVar_512_1)))),[alpha2(genFunction_65536_2)]).],[])
+  ([fof(genFunction_268435456_2,plain,~ ((big_f(FreeVar_1_1,FreeVar_1_1) => (big_f(FreeVar_131072_1,FreeVar_131072_1) => (big_f(FreeVar_1_1,skolFun_268435456_2(FreeVar_131072_1,FreeVar_1_1)) => big_f(skolFun_268435456_2(FreeVar_131072_1,FreeVar_1_1),FreeVar_131072_1))))),[delta(genFunction_131072_1)]).],[])
+  ([fof(genFunction_536870912_1,plain,~ (! [Z] : ((big_f(FreeVar_1_1,FreeVar_1_1) => (big_f(FreeVar_536870912_1,FreeVar_536870912_1) => (big_f(FreeVar_1_1,Z) => big_f(Z,FreeVar_536870912_1)))))),[gamma(genFunction_1_1)]).],[])
+  ([fof(genFunction_1073741824_1,plain,big_f(FreeVar_32_1,FreeVar_32_1),[alpha1(genFunction_262144_2)]).,
+    fof(genFunction_1073741824_2,plain,~ ((big_f(FreeVar_4_1,skolFun_1024_1(FreeVar_32_1,FreeVar_4_1)) => big_f(skolFun_1024_1(FreeVar_32_1,FreeVar_4_1),FreeVar_32_1))),[alpha2(genFunction_262144_2)]).],[])
+  ([fof(genFunction_2147483648_2,plain,big_f(FreeVar_4_1,FreeVar_4_1),[alpha1(genFunction_524288_2)]).,
+    fof(genFunction_2147483648_3,plain,~ ((big_f(FreeVar_2048_1,FreeVar_2048_1) => (big_f(FreeVar_4_1,skolFun_524288_2(FreeVar_2048_1,FreeVar_4_1)) => big_f(skolFun_524288_2(FreeVar_2048_1,FreeVar_4_1),FreeVar_2048_1)))),[alpha2(genFunction_524288_2)]).],[])
+  ([fof(genFunction_4294967296_2,plain,~ ((big_f(FreeVar_4_1,FreeVar_4_1) => (big_f(FreeVar_1048576_1,FreeVar_1048576_1) => (big_f(FreeVar_4_1,skolFun_4294967296_2(FreeVar_1048576_1,FreeVar_4_1)) => big_f(skolFun_4294967296_2(FreeVar_1048576_1,FreeVar_4_1),FreeVar_1048576_1))))),[delta(genFunction_1048576_1)]).],[])
+  ([fof(genFunction_8589934592_1,plain,~ (! [Z] : ((big_f(FreeVar_4_1,FreeVar_4_1) => (big_f(FreeVar_8589934592_1,FreeVar_8589934592_1) => (big_f(FreeVar_4_1,Z) => big_f(Z,FreeVar_8589934592_1)))))),[gamma(genFunction_4_1)]).],[])
+  ([fof(genFunction_17179869184_1,plain,big_f(FreeVar_64_1,FreeVar_64_1),[alpha1(genFunction_2097152_1)]).,
+    fof(genFunction_17179869184_2,plain,~ ((big_f(FreeVar_4096_1,FreeVar_4096_1) => (big_f(FreeVar_64_1,skolFun_2097152_1(FreeVar_4096_1,FreeVar_64_1)) => big_f(skolFun_2097152_1(FreeVar_4096_1,FreeVar_64_1),FreeVar_4096_1)))),[alpha2(genFunction_2097152_1)]).],[])
+  ([fof(genFunction_34359738368_2,plain,~ ((big_f(FreeVar_64_1,FreeVar_64_1) => (big_f(FreeVar_4194304_1,FreeVar_4194304_1) => (big_f(FreeVar_64_1,skolFun_34359738368_2(FreeVar_4194304_1,FreeVar_64_1)) => big_f(skolFun_34359738368_2(FreeVar_4194304_1,FreeVar_64_1),FreeVar_4194304_1))))),[delta(genFunction_4194304_1)]).],[])
+  ([fof(genFunction_68719476736_1,plain,~ (! [Z] : ((big_f(FreeVar_64_1,FreeVar_64_1) => (big_f(FreeVar_68719476736_1,FreeVar_68719476736_1) => (big_f(FreeVar_64_1,Z) => big_f(Z,FreeVar_68719476736_1)))))),[gamma(genFunction_64_1)]).],[])
+  ([fof(genFunction_137438953472_1,plain,~ ((big_f(FreeVar_8192_1,FreeVar_8192_1) => (big_f(FreeVar_8388608_1,FreeVar_8388608_1) => (big_f(FreeVar_8192_1,skolFun_137438953472_1(FreeVar_8388608_1,FreeVar_8192_1)) => big_f(skolFun_137438953472_1(FreeVar_8388608_1,FreeVar_8192_1),FreeVar_8388608_1))))),[delta(genFunction_8388608_1)]).],[])
+  ([fof(genFunction_274877906944_1,plain,~ (! [Z] : ((big_f(FreeVar_8192_1,FreeVar_8192_1) => (big_f(FreeVar_274877906944_1,FreeVar_274877906944_1) => (big_f(FreeVar_8192_1,Z) => big_f(Z,FreeVar_274877906944_1)))))),[gamma(genFunction_8192_1)]).],[])
+  ([fof(genFunction_549755813888_1,plain,~ (! [Z] : ((big_f(FreeVar_16777216_1,FreeVar_16777216_1) => (big_f(FreeVar_549755813888_1,FreeVar_549755813888_1) => (big_f(FreeVar_16777216_1,Z) => big_f(Z,FreeVar_549755813888_1)))))),[gamma(genFunction_16777216_1)]).],[])
+  ([fof(genFunction_1099511627776_1,plain,~ (? [Y] : (! [Z] : ((big_f(FreeVar_1099511627776_1,FreeVar_1099511627776_1) => (big_f(Y,Y) => (big_f(FreeVar_1099511627776_1,Z) => big_f(Z,Y))))))),[gamma(not_church_46_14_1)]).],[])
+  ([fof(genFunction_2199023255552_1,plain,big_f(FreeVar_1_1,skolFun_256_2(FreeVar_16_1,FreeVar_1_1)),[alpha1(genFunction_67108864_3)]).,
+    fof(genFunction_2199023255552_2,plain,~ (big_f(skolFun_256_2(FreeVar_16_1,FreeVar_1_1),FreeVar_16_1)),[alpha2(genFunction_67108864_3)]).],[])
+  ([fof(genFunction_4398046511104_2,plain,big_f(FreeVar_512_1,FreeVar_512_1),[alpha1(genFunction_134217728_3)]).,
+    fof(genFunction_4398046511104_3,plain,~ ((big_f(FreeVar_1_1,skolFun_65536_2(FreeVar_512_1,FreeVar_1_1)) => big_f(skolFun_65536_2(FreeVar_512_1,FreeVar_1_1),FreeVar_512_1))),[alpha2(genFunction_134217728_3)]).],[])
+  ([fof(genFunction_8796093022208_2,plain,big_f(FreeVar_1_1,FreeVar_1_1),[alpha1(genFunction_268435456_2)]).,
+    fof(genFunction_8796093022208_3,plain,~ ((big_f(FreeVar_131072_1,FreeVar_131072_1) => (big_f(FreeVar_1_1,skolFun_268435456_2(FreeVar_131072_1,FreeVar_1_1)) => big_f(skolFun_268435456_2(FreeVar_131072_1,FreeVar_1_1),FreeVar_131072_1)))),[alpha2(genFunction_268435456_2)]).],[])
+  ([fof(genFunction_17592186044416_2,plain,~ ((big_f(FreeVar_1_1,FreeVar_1_1) => (big_f(FreeVar_536870912_1,FreeVar_536870912_1) => (big_f(FreeVar_1_1,skolFun_17592186044416_2(FreeVar_536870912_1,FreeVar_1_1)) => big_f(skolFun_17592186044416_2(FreeVar_536870912_1,FreeVar_1_1),FreeVar_536870912_1))))),[delta(genFunction_536870912_1)]).],[])
+  ([fof(genFunction_35184372088832_1,plain,~ (! [Z] : ((big_f(FreeVar_1_1,FreeVar_1_1) => (big_f(FreeVar_35184372088832_1,FreeVar_35184372088832_1) => (big_f(FreeVar_1_1,Z) => big_f(Z,FreeVar_35184372088832_1)))))),[gamma(genFunction_1_1)]).],[])
+  ([fof(genFunction_70368744177664_1,plain,big_f(FreeVar_4_1,skolFun_1024_1(FreeVar_32_1,FreeVar_4_1)),[alpha1(genFunction_1073741824_2)]).,
+    fof(contradict_70368744177664_1,plain,(big_f(FreeVar_4_1,skolFun_1024_1(FreeVar_32_1,FreeVar_4_1)) & ~ (big_f(skolFun_256_2(FreeVar_16_1,FreeVar_1_1),FreeVar_16_1))),[contradiction_of(genFunction_70368744177664_1,genFunction_2199023255552_2)]).],[])
+
+SZS Status Theorem.
