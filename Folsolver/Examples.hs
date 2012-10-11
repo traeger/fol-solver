@@ -28,6 +28,7 @@ agatha = readExampleUnsafe "Data/Examples/agatha.tptp"
 
 arithmetic1 = readExampleUnsafe "Data/Examples/arithmetic1.tptp"
 arithmetic2 = readExampleUnsafe "Data/Examples/arithmetic2.tptp"
+arithmetic3 = readExampleUnsafe "Data/Examples/arithmetic3.tptp"
 
 counter1 = readExampleUnsafe "Data/Examples/Counter/counter1.tptp"
 

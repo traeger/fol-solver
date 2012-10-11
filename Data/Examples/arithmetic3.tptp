@@ -1,0 +1,2 @@
+fof(ax1,axiom,![X]:?[Y]:$lesseq(X,$plus(Y,1/1))).
+fof(con,conjecture,(![X]:$lesseq(X,20/1)) => (![X]: $less($plus(X,1/1),20/1))).
