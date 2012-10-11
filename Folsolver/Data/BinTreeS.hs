@@ -2,6 +2,7 @@ module Folsolver.Data.BinTreeS
  ( BinTreeS(..)
  , empty, leaf, (<#), (#>), (<|>)
  , subtree, cuttree, modRootValue
+ , mkListTree
  ) where
 
 import Folsolver.TPTP
@@ -45,7 +46,7 @@ leaf v = empty <# v #> empty
 (<|>) :: v -> BinTreeS v -> BinTreeS v
 infixl 8 <#
 infixr 2 #>
-infixl 9 <|>
+infixr 9 <|>
 
 left <# v = BinNode left v
 lefthalf #> right = lefthalf right
@@ -80,3 +81,7 @@ cuttree 0 _ = BinEmpty
 cuttree n BinEmpty = BinEmpty
 cuttree n (SNode t v) = (SNode (cuttree (n-1) t) v)
 cuttree n (BinNode t0 v t1) = (cuttree (n-1) t0) <# v #> (cuttree (n-1) t1)
+
+mkListTree :: [v] -> BinTreeS v -> BinTreeS v
+mkListTree [] t = t
+mkListTree (v:vs) t = v <|> mkListTree vs t

@@ -16,7 +16,7 @@ class HasPretty a where
   pretty :: a -> Pretty.Doc
 
 instance (HasPretty a) => HasPretty [a] where
-  pretty as = Pretty.brackets $ Pretty.cat $ (Pretty.punctuate Pretty.comma) $ map pretty as
+  pretty as = Pretty.brackets $ Pretty.hcat $ (Pretty.punctuate Pretty.comma) $ map pretty as
 
 instance (HasPretty a, HasPretty b) => HasPretty (a,b) where
   pretty (a,b) = Pretty.parens $ pretty a <> Pretty.comma <> pretty b

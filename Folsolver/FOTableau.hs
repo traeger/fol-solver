@@ -51,8 +51,9 @@ tableauFO
   :: ([FOForm] -> (FOForm, [FOForm]))  -- pick function fuer die naechste formula
   -> [TPTP_Input]  -- noch zu nutztende formulas
   -> FOTableau
-tableauFO pick formulas = tableau0 (pick) (1,1) simple noUniversal
+tableauFO pick formulas = inittree $ tableau0 (pick) (1,1) simple noUniversal (mkTC $ last formulas)
     where
+        inittree = mkListTree $ init $ map mkTC formulas
         simple  = initFormulas formulas
         initFormulas :: [TPTP_Input] -> [FOForm]
         initFormulas xs = map (\x -> (x,[],S.empty)) $ filter (isAlphaFormula . formula) xs ++ filter (\x -> (not (isAlphaFormula $ formula  x))) xs
@@ -62,9 +63,10 @@ tableau0
   -> (Integer, Integer) -- Verzweigungs Position in the tree (spos), Tiefen Position (dpos) 
   -> [FOForm]  -- noch nicht genutzten formulas
   -> UniversalDequantMap       -- map from the universal quantifier variable to its dequantified variables introduced so far
+  -> TC
   -> FOTableau
-tableau0 pick (spos, dpos) [] udm          = Folsolver.Data.FOTableau.empty
-tableau0 pick (spos, dpos) formulas udm    = 
+tableau0 pick (spos, dpos) [] udm tc        = leaf tc
+tableau0 pick (spos, dpos) formulas udm tc  = 
   let
     nameFun sp dp = "genFunction_"++(show sp)++"_"++(show dp)
     ((f,v,uniFormVars),fs) = pick formulas
@@ -75,25 +77,25 @@ tableau0 pick (spos, dpos) formulas udm    =
                 at1 = mkTPTP (nameFun spos dpos) "plain" a1 [("alpha1",[sAN.name $ f])]
                 at2 = mkTPTP (nameFun spos (dpos + 1)) "plain" a2 [("alpha2",[sAN.name $ f])]
             in
-                mkTC f <|> tableau0 pick (spos, dpos+2) (fs++[(at1,v,uniFormVars),(at2,v,uniFormVars)]) udm
+                tc <|> mkTC at1 <|> tableau0 pick (spos, dpos+2) (fs++[(at1,v,uniFormVars),(at2,v,uniFormVars)]) udm (mkTC at2)
     BetaR b1 b2  
         -> 
             let
                 bt1 = mkTPTP (nameFun (spos*2) 1) "plain" b1 [("beta1",[sAN.name $ f])]
                 bt2 = mkTPTP (nameFun ((2*spos)+1) 1) "plain" b2 [("beta2",[sAN.name $ f])]
-                t1 = tableau0 pick (2*spos, 1) (fs++[(bt1,v,S.empty)]) udm
-                t2 = tableau0 pick (2*spos + 1, 1) (fs++[(bt2,v,S.empty)]) udm
+                t1 = tableau0 pick (2*spos, 1) (fs++[(bt1,v,S.empty)]) udm (mkTC bt1)
+                t2 = tableau0 pick (2*spos + 1, 1) (fs++[(bt2,v,S.empty)]) udm (mkTC bt2)
                 quantDequantTuplesToDelete = map (\v -> (v, fromJust $ M.lookup v udm) ) $ S.toList uniFormVars
             in
-                t1 <# foldr (flip ($*$)) (mkTC f) quantDequantTuplesToDelete #> t2
+                t1 <# foldr (flip ($*$)) (tc) quantDequantTuplesToDelete #> t2
     DNegate n   
         ->
             let
                 f1 = mkTPTP (nameFun spos $ dpos) "plain" n [("negate",[sAN.name $ f])]
             in
-                mkTC f <|> tableau0 pick (spos,dpos+1) (fs++[(f1,v,uniFormVars)]) udm
+                tc <|> tableau0 pick (spos,dpos+1) (fs++[(f1,v,uniFormVars)]) udm (mkTC f1)
     AtomR _     
-        -> mkTC f <|> tableau0 pick (spos, dpos) fs udm
+        -> tableau0 pick (spos, dpos) fs udm tc
     GammaR form var
         ->
             let
@@ -102,7 +104,7 @@ tableau0 pick (spos, dpos) formulas udm    =
                 rename  = variableRename var (T $ Identity $ Var varName) form
                 next    = mkTPTP (nameFun spos dpos) "plain" rename [("gamma",[oldName])]
             in 
-                mkTC f <|> tableau0 pick (spos, dpos+1) (fs++[(next,varName:v,S.insert var uniFormVars),(f,v,uniFormVars)]) (M.insertWith (++) var [varName] udm)
+                tc <|> tableau0 pick (spos, dpos+1) (fs++[(next,varName:v,S.insert var uniFormVars),(f,v,uniFormVars)]) (M.insertWith (++) var [varName] udm) (mkTC next)
     DeltaR form var 
         -> 
             let
@@ -112,7 +114,7 @@ tableau0 pick (spos, dpos) formulas udm    =
                 rename      = variableRename var skolFun form
                 next        = mkTPTP (nameFun spos dpos) "plain" rename [("delta",[oldName])]
             in
-                mkTC f <|> tableau0 pick (spos, dpos+1) (fs++[(next,v,uniFormVars)]) udm
+                tc <|> tableau0 pick (spos, dpos+1) (fs++[(next,v,uniFormVars)]) udm (mkTC next)
   --  _   -> tableau0 pick (spos, dpos) fs qs udm t
 
 type Sub5t1tut0r = Map V Term
