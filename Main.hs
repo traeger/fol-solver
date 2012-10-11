@@ -4,6 +4,7 @@ module Main
  , module Folsolver.FOTableau
  , module Folsolver.Examples
  , module Codec.TPTP
+ , module Folsolver.LP
  ) where
 
 
@@ -12,3 +13,4 @@ import Folsolver.Proofer
 import Folsolver.FOTableau
 import Codec.TPTP
 import Folsolver.Examples
+import Folsolver.LP

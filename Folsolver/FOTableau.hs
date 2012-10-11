@@ -12,6 +12,7 @@ import Folsolver.Data.FOTableau
 import Folsolver.TPTP
 import Folsolver.Proofer
 import Folsolver.Data.TPTP_Gen
+import Folsolver.LP
 
 import Data.Set (Set) 
 import qualified Data.Set as S
@@ -133,31 +134,33 @@ checkFOTableau
     FOTableau             -- Current branch of the tableau
     -> Set Formula      -- Formulas seen so far
     -> Sub5t1tut0r
+    -> [Formula]        -- Arithmetic Formulas
     -> (Bool,Sub5t1tut0r)             
-checkFOTableau (BinEmpty) _ m  = (False, m)
-checkFOTableau (SNode t v) forms m =
+checkFOTableau (BinEmpty) _ m arith = (False, m)
+checkFOTableau (SNode t v) forms m arith =
     let
+        valueT              = formula $ formTC v
+        newArith            = if isArithmetic valueT then valueT:arith else arith
         (cond, nForms, m')  = isClosed (formula $ formTC v) m forms
-    in
-        if cond
-        then
-            (True, m')
-        else
-            (checkFOTableau t nForms m)
-checkFOTableau t forms m       = 
+    in case () of
+        _   | cond                          -> (True,m')
+            | isArithmetic valueT           -> case () of
+                _   | not $ solve newArith  -> (True, m')
+                    | otherwise             -> checkFOTableau t nForms m newArith
+            | otherwise                     -> checkFOTableau t nForms m arith
+checkFOTableau t forms m arith      = 
     let
+        valueT                  = formula $ formTCT t
+        newArith                = if isArithmetic valueT then valueT:arith else arith
         (cond, nForms, m')      = isClosed (formula $ formTCT t) m forms
-        (closed1, m1)           = checkFOTableau (left t) nForms m
-        (closed2, m2)           = checkFOTableau (right t) nForms (removeVarOccurance (dequantsTCT t) m1)
-    in
-        if cond
-        then
-            (True,m')
-        else if closed1 && closed2
-        then
-            (True,m2)
-        else
-            (False, M.empty)
+        (closed1, m1)           = checkFOTableau (left t) nForms m newArith
+        (closed2, m2)           = checkFOTableau (right t) nForms (removeVarOccurance (dequantsTCT t) m1) newArith
+    in case () of
+        _   | cond                          -> (True, m')
+            | isArithmetic valueT           -> case () of
+                _   | not $ solve newArith  -> (True, m')
+                    | otherwise             -> (closed1 && closed2, m2)
+            | otherwise                     -> (closed1 && closed2, m2)
 
 isClosed :: Formula -> Sub5t1tut0r -> Set Formula -> (Bool, Set Formula, Sub5t1tut0r)
 isClosed x m forms
@@ -169,14 +172,18 @@ isClosed x m forms
     where
         ergs = map (unifyEquals m (noDoubleNeg ((.~.) x))) (S.toList forms)
             
+name' :: TPTP_Input -> String
+name' y = let (AtomicWord x) = name y in x
+
 proofSATFOTableau 
     :: 
     FOTableau             -- Current branch of the tableau
     -> Sub5t1tut0r
     -> Set TPTP_Input      -- Formulas seen so far
+    -> [Formula]            -- Arithmetic Formulas
     -> (Proof FOTableau , Sub5t1tut0r)
-proofSATFOTableau (BinEmpty) m forms = (mkSATProof $ nub $ filter isLiteral $ (map formula) $ S.toList $ forms , m)
-proofSATFOTableau (SNode t v) m forms
+proofSATFOTableau (BinEmpty) m forms arith = (mkSATProof $ nub $ filter isLiteral $ (map formula) $ S.toList $ forms , m)
+proofSATFOTableau (SNode t v) m forms arith
     | closed                =
         let
             witTPTP     = fromJust witness
@@ -187,13 +194,21 @@ proofSATFOTableau (SNode t v) m forms
             contradict = mkTPTP ("contradict_"++wName) "plain" contForm [("contradiction_of",[fName, errName])]
         in
             (mkNSATProof $ (formTC v) <|> leaf contradict, m' )
+    | isArithmetic valueT = case () of
+        _   | not $ solve newArithmetic -> (mkNSATProof $ (formTC v) <|> (leaf $ (mkTPTP ("arithmetic_"++(show nameAr)) "plain" errConstr [("arithmetic",[])])), m)
+            | isSATProof subTree        -> (subTree, m'')
+            | otherwise                 -> (mkNSATProof $ (formTC v) <|> subPTree, m'')
     | isSATProof subTree    = (subTree, m'')
     | otherwise             = (mkNSATProof $ (formTC v) <|> subPTree, m'')
     where
+        errConstr                               = foldr1 (.&.) newArithmetic
+        nameAr                                  = (rnd 1000 9999) :: Int
+        valueT                                  = formula $ formTC v
+        newArithmetic                           = if isArithmetic valueT then valueT:arith else arith
         (closed,nForms,witness, errCase, m')    = isClosedWithWitness (formTC v) m forms
-        (subTree,m'')                           = proofSATFOTableau t m nForms
+        (subTree,m'')                           = proofSATFOTableau t m nForms newArithmetic
         subPTree                                = fromNSATProofT subTree
-proofSATFOTableau t m forms
+proofSATFOTableau t m forms arith
     | closed                = 
         let
             witTPTP     = fromJust witness
@@ -204,13 +219,22 @@ proofSATFOTableau t m forms
             contradict = mkTPTP ("contradict_"++wName) "plain" contForm [("contradiction_of",[fName, errName])]
         in
             (mkNSATProof $ (formTCT t) <|> leaf contradict,m')
+    | isArithmetic valueT = case () of
+        _   | not $ solve newArithmetic -> (mkNSATProof $ (formTCT t) <|> (leaf $ (mkTPTP ("arithmetic_"++(show nameAr)) "plain" errConstr [("arithmetic",[])])), m)
+            | isSATProof proofLeft      -> (proofLeft, M.empty)
+            | isSATProof proofRight     -> (proofRight, M.empty)
+            | otherwise                 -> (mkNSATProof $ leftPTree <# formTCT t #> rightPTree, m''')
     | isSATProof proofLeft  = (proofLeft, M.empty)
     | isSATProof proofRight = (proofRight, M.empty)
     | otherwise             = (mkNSATProof $ leftPTree <# formTCT t #> rightPTree, m''')
     where
+        errConstr                               = foldr1 (.&.) newArithmetic
+        nameAr                                  = (rnd 1000 9999) :: Int
+        valueT                                  = formula $ formTCT t
+        newArithmetic                           = if isArithmetic valueT then valueT:arith else arith
         (closed, nForms, witness, errCase, m')  = isClosedWithWitness (formTCT t) m forms
-        (proofLeft,m'')      = proofSATFOTableau (left t) m nForms
-        (proofRight, m''')   = proofSATFOTableau (right t) (removeVarOccurance (dequantsTCT t) m'') nForms
+        (proofLeft,m'')      = proofSATFOTableau (left t) m nForms newArithmetic
+        (proofRight, m''')   = proofSATFOTableau (right t) (removeVarOccurance (dequantsTCT t) m'') nForms newArithmetic
         (leftPTree)  = fromNSATProofT proofLeft
         (rightPTree) = fromNSATProofT proofRight
 
@@ -232,8 +256,8 @@ instance Proofer FOTableau where
   data Picker FOTableau = Picker {pick :: [FOForm] -> (FOForm, [FOForm])}
   mkProofer (Picker picker) formulas = tableauFO picker formulas
   
-  isSAT tableau = not $ fst $ checkFOTableau tableau S.empty M.empty
-  proofSAT t = fst $ proofSATFOTableau t M.empty S.empty
+  isSAT tableau = not $ fst $ checkFOTableau tableau S.empty M.empty []
+  proofSAT t = fst $ proofSATFOTableau t M.empty S.empty []
 
 mkNSATProof = mkProof . NSAT
 fromNSATProofT = fromNSATproofT . getNSATProof0
