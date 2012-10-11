@@ -20,13 +20,15 @@ import qualified Data.Map as M
 import Data.Maybe (fromJust, fromMaybe, isNothing)
 import Data.List (nub)
 
+import qualified Data.List as L ((\\))
+
 import Control.Arrow(second)
 
 import Data.Functor.Identity
 
 import Text.PrettyPrint.HughesPJ as Pretty hiding (($+$))
 
-type FOForm = (TPTP_Input,[V],Set V)
+type FOForm = (TPTP_Input,[V],Set V,Set V)
 
 -- | map from the universal quantifier variable to its dequantified variables
 type UniversalDequantMap = Map V [V]
@@ -36,10 +38,10 @@ maxNodeLength :: Int
 maxNodeLength = 20
 
 fofformula :: FOForm -> TPTP_Input
-fofformula (x,_,_)       = x
+fofformula (x,_,_,_)       = x
 
 freeVariables :: FOForm -> [V]
-freeVariables (_,v,_) = v
+freeVariables (_,v,_,_) = v
 
 sAN :: AtomicWord -> String
 sAN (AtomicWord s)  = s
@@ -58,7 +60,7 @@ tableauFO pick formulas = inittree $ tableau0 (pick) (1,1) simple noUniversal (m
         inittree = mkListTree $ init $ map mkTC formulas
         simple  = initFormulas formulas
         initFormulas :: [TPTP_Input] -> [FOForm]
-        initFormulas xs = map (\x -> (x,[],S.empty)) $ filter (isAlphaFormula . formula) xs ++ filter (\x -> (not (isAlphaFormula $ formula  x))) xs
+        initFormulas xs = map (\x -> (x,[],S.empty,S.empty)) $ filter (isAlphaFormula . formula) xs ++ filter (\x -> (not (isAlphaFormula $ formula  x))) xs
 
 tableau0
   :: ([FOForm] -> (FOForm, [FOForm]))  -- pick function fuer die naechste formula
@@ -71,7 +73,7 @@ tableau0 pick (spos, dpos) [] udm tc        = leaf tc
 tableau0 pick (spos, dpos) formulas udm tc  = 
   let
     nameFun sp dp = "genFunction_"++(show sp)++"_"++(show dp)
-    ((f,v,uniFormVars),fs) = pick formulas
+    ((f,v,uniFormVars,deuniFormVars),fs) = pick formulas
   in case reduction $ formula f of
     AlphaR a1 a2 
         -> 
@@ -79,15 +81,15 @@ tableau0 pick (spos, dpos) formulas udm tc  =
                 at1 = mkTPTP (nameFun spos dpos) "plain" a1 [("alpha1",[sAN.name $ f])]
                 at2 = mkTPTP (nameFun spos (dpos + 1)) "plain" a2 [("alpha2",[sAN.name $ f])]
             in
-                tc <|> mkTC at1 <|> tableau0 pick (spos, dpos+2) (fs++[(at1,v,uniFormVars),(at2,v,uniFormVars)]) udm (mkTC at2)
+                tc <|> mkTC at1 <|> tableau0 pick (spos, dpos+2) (fs++[(at1,v,uniFormVars,deuniFormVars),(at2,v,uniFormVars,deuniFormVars)]) udm (mkTC at2)
     BetaR b1 b2  
         -> 
             let
-                udm'    = foldr M.delete udm (S.toList uniFormVars)
+                udm' = foldr (M.update (\x -> Just $ x L.\\ (S.toList deuniFormVars) ) ) udm (S.toList uniFormVars) -- foldr M.delete udm (S.toList uniFormVars)
                 bt1 = mkTPTP (nameFun (spos*2) 1) "plain" b1 [("beta1",[sAN.name $ f])]
                 bt2 = mkTPTP (nameFun ((2*spos)+1) 1) "plain" b2 [("beta2",[sAN.name $ f])]
-                t1 = tableau0 pick (2*spos, 1) (fs++[(bt1,v,S.empty)]) udm' (mkTC bt1)
-                t2 = tableau0 pick (2*spos + 1, 1) (fs++[(bt2,v,S.empty)]) udm'  (mkTC bt2)
+                t1 = tableau0 pick (2*spos, 1) (fs++[(bt1,v, uniFormVars,S.empty)]) udm' (mkTC bt1)
+                t2 = tableau0 pick (2*spos + 1, 1) (fs++[(bt2,v, uniFormVars,S.empty)]) udm'  (mkTC bt2)
                 quantDequantTuplesToDelete = map (second fromJust) $ filter (not . isNothing . snd) $ map (\v -> (v, M.lookup v udm) ) $ S.toList uniFormVars
             in
                 t1 <# foldr (flip ($*$)) (tc) quantDequantTuplesToDelete #> t2
@@ -96,7 +98,7 @@ tableau0 pick (spos, dpos) formulas udm tc  =
             let
                 f1 = mkTPTP (nameFun spos $ dpos) "plain" n [("negate",[sAN.name $ f])]
             in
-                tc <|> tableau0 pick (spos,dpos+1) (fs++[(f1,v,uniFormVars)]) udm (mkTC f1)
+                tc <|> tableau0 pick (spos,dpos+1) (fs++[(f1,v,uniFormVars,deuniFormVars)]) udm (mkTC f1)
     AtomR _     
         -> tableau0 pick (spos, dpos) fs udm tc
     GammaR form var
@@ -107,7 +109,7 @@ tableau0 pick (spos, dpos) formulas udm tc  =
                 rename  = variableRename var (T $ Identity $ Var varName) form
                 next    = mkTPTP (nameFun spos dpos) "plain" rename [("gamma",[oldName])]
             in 
-                tc <|> tableau0 pick (spos, dpos+1) (fs++[(next,varName:v,S.insert var uniFormVars),(f,v,uniFormVars)]) (M.insertWith (++) var [varName] udm) (mkTC next)
+                tc <|> tableau0 pick (spos, dpos+1) (fs++[(next,varName:v,S.insert var uniFormVars,S.insert varName deuniFormVars),(f,v,uniFormVars,deuniFormVars)]) (M.insertWith (++) var [varName] udm) (mkTC next)
     DeltaR form var 
         -> 
             let
@@ -117,7 +119,7 @@ tableau0 pick (spos, dpos) formulas udm tc  =
                 rename      = variableRename var skolFun form
                 next        = mkTPTP (nameFun spos dpos) "plain" rename [("delta",[oldName])]
             in
-                tc <|> tableau0 pick (spos, dpos+1) (fs++[(next,v,uniFormVars)]) udm (mkTC next)
+                tc <|> tableau0 pick (spos, dpos+1) (fs++[(next,v,uniFormVars,deuniFormVars)]) udm (mkTC next)
   --  _   -> tableau0 pick (spos, dpos) fs qs udm t
 
 type Sub5t1tut0r = Map V Term
