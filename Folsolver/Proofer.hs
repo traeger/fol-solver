@@ -133,4 +133,4 @@ updateF _ x                              = x
 
 negateConjecture :: TPTP_Input -> TPTP_Input
 negateConjecture (AFormula n@(AtomicWord name) role f _) = 
-    (AFormula (AtomicWord $ "not_"++name) (Role "negated_conjecture") (noDoubleNeg ((.~.) f)) (Annotations (GTerm (GApp (AtomicWord "negConjunction") [GTerm (GWord n)])) NoUsefulInfo))
+    (AFormula (AtomicWord $ "not_"++name) (Role "negated_conjecture") (noDoubleNeg ((.~.) f)) (Annotations (GTerm (GApp (AtomicWord "negConjecture") [GTerm (GWord n)])) NoUsefulInfo))
