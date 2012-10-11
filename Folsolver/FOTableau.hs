@@ -183,9 +183,9 @@ proofSATFOTableau (SNode t v) m forms
             contForm    = (applySub m' $ formula witTPTP) .&. (applySub m' $ formula $ fromJust errCase)
             contradict = mkTPTP ("contradict_"++wName) "plain" contForm [("contradiction_of",[fName, errName])]
         in
-            (mkNSATProof $ leaf $ [witTPTP,contradict], m' )
+            (mkNSATProof $ (formTC v) <|> leaf contradict, m' )
     | isSATProof subTree    = (subTree, m'')
-    | otherwise             = (mkNSATProof $ ([formTC v]) <|> subPTree, m'')
+    | otherwise             = (mkNSATProof $ (formTC v) <|> subPTree, m'')
     where
         (closed,nForms,witness, errCase, m')    = isClosedWithWitness (formTC v) m forms
         (subTree,m'')                           = proofSATFOTableau t m nForms
@@ -200,10 +200,10 @@ proofSATFOTableau t m forms
             contForm    = (formula witTPTP) .&. (formula $ fromJust errCase)
             contradict = mkTPTP ("contradict_"++wName) "plain" contForm [("contradiction_of",[fName, errName])]
         in
-            (mkNSATProof $ leaf $ [witTPTP,contradict],m')
+            (mkNSATProof $ (formTCT t) <|> leaf contradict,m')
     | isSATProof proofLeft  = (proofLeft, M.empty)
     | isSATProof proofRight = (proofRight, M.empty)
-    | otherwise             = (mkNSATProof $ leftPTree <# [formTCT t] #> rightPTree, m''')
+    | otherwise             = (mkNSATProof $ leftPTree <# formTCT t #> rightPTree, m''')
     where
         (closed, nForms, witness, errCase, m')  = isClosedWithWitness (formTCT t) m forms
         (proofLeft,m'')      = proofSATFOTableau (left t) m nForms
@@ -225,7 +225,7 @@ isClosedWithWitness x m forms
         unifyErgs = filter (fst . fst) $  map (\x -> (unifyEquals m negF (formula x), x)) (S.toList forms)
  
 instance Proofer FOTableau where
-  data NSATProof FOTableau = NSAT {fromNSATproofT :: BinTreeS [TPTP_Input]} deriving Show
+  data NSATProof FOTableau = NSAT {fromNSATproofT :: BinTreeS TPTP_Input} deriving Show
   data Picker FOTableau = Picker {pick :: [FOForm] -> (FOForm, [FOForm])}
   mkProofer (Picker picker) formulas = tableauFO picker formulas
   
