@@ -22,7 +22,11 @@ import System.Environment
 proofFiles :: [(AtomicWord, [TPTP_Input])] -> [(Pretty.Doc, Pretty.Doc)]
 proofFiles = map (\x -> (pretty $ fst x, pretty $ isNSATProof $ proofFOT $ snd x))
 
-
+-- | reads a TPTP-input from stdin (as a string, as long as the stdin is not closed)
+-- | proofs the tptp-input, prints the proof to the stdout.
+-- | * the TPTP-input has to be conform to the TPTP-syntax 
+-- |   (http://www.cs.miami.edu/~tptp/TPTP/SyntaxBNF.html)
+-- | * first-order-logic with arithmetic is supported (fof)
 main :: IO ()
 main = do
   interact (\x -> show $ pretty $ proofFOT $ parse x)
