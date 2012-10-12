@@ -20,6 +20,8 @@ import Data.Map (Map)
 import qualified Data.Map as M
 import Data.Maybe (fromJust, fromMaybe, isNothing)
 import Data.List (nub)
+import qualified Folsolver.Data.Queue as Q
+import Folsolver.Data.Queue (Queue(..), peek, (|>))
 
 import qualified Data.List as L ((\\))
 
@@ -48,15 +50,15 @@ sAN :: AtomicWord -> String
 sAN (AtomicWord s)  = s
 
 simplePickFO 
-    :: [FOForm]                 -- Aufzulösende Formeln 
-    -> (FOForm, [FOForm])
-simplePickFO (f:fs) = (f,fs)
+    :: Queue FOForm                 -- Aufzulösende Formeln 
+    -> (FOForm, Queue FOForm)
+simplePickFO = peek
 
 tableauFO
-  :: ([FOForm] -> (FOForm, [FOForm]))  -- pick function fuer die naechste formula
+  :: (Queue FOForm -> (FOForm, Queue FOForm))  -- pick function fuer die naechste formula
   -> [TPTP_Input]  -- noch zu nutztende formulas
   -> FOTableau
-tableauFO pick formulas = inittree $ tableau0 (pick) (1,1) simple noUniversal (mkTC $ last formulas)
+tableauFO pick formulas = inittree $ tableau0 (pick) (1,1) (Q.fromList simple) noUniversal (mkTC $ last formulas)
     where
         inittree = mkListTree $ init $ map mkTC formulas
         simple  = initFormulas formulas
@@ -64,13 +66,13 @@ tableauFO pick formulas = inittree $ tableau0 (pick) (1,1) simple noUniversal (m
         initFormulas xs = map (\x -> (x,[],S.empty,S.empty)) $ filter (isAlphaFormula . formula) xs ++ filter (\x -> (not (isAlphaFormula $ formula  x))) xs
 
 tableau0
-  :: ([FOForm] -> (FOForm, [FOForm]))  -- pick function fuer die naechste formula
+  :: (Queue FOForm -> (FOForm, Queue FOForm))  -- pick function fuer die naechste formula
   -> (Integer, Integer) -- Verzweigungs Position in the tree (spos), Tiefen Position (dpos) 
-  -> [FOForm]  -- noch nicht genutzten formulas
+  -> Queue FOForm  -- noch nicht genutzten formulas
   -> UniversalDequantMap       -- map from the universal quantifier variable to its dequantified variables introduced so far
   -> TC
   -> FOTableau
-tableau0 pick (spos, dpos) [] udm tc        = leaf tc
+tableau0 pick (spos, dpos) QEmpty udm tc        = leaf tc
 tableau0 pick (spos, dpos) formulas udm tc  = 
   let
     nameFun sp dp = "genFunction_"++(show sp)++"_"++(show dp)
@@ -82,15 +84,15 @@ tableau0 pick (spos, dpos) formulas udm tc  =
                 at1 = mkTPTP (nameFun spos dpos) "plain" a1 [("alpha1",[sAN.name $ f])]
                 at2 = mkTPTP (nameFun spos (dpos + 1)) "plain" a2 [("alpha2",[sAN.name $ f])]
             in
-                tc <|> mkTC at1 <|> tableau0 pick (spos, dpos+2) (fs++[(at1,v,uniFormVars,deuniFormVars),(at2,v,uniFormVars,deuniFormVars)]) udm (mkTC at2)
+                tc <|> mkTC at1 <|> tableau0 pick (spos, dpos+2) (fs |> (at1,v,uniFormVars,deuniFormVars) |> (at2,v,uniFormVars,deuniFormVars)) udm (mkTC at2)
     BetaR b1 b2  
         -> 
             let
                 udm' = foldr (M.update (\x -> Just $ x L.\\ (S.toList deuniFormVars) ) ) udm (S.toList uniFormVars) -- foldr M.delete udm (S.toList uniFormVars)
                 bt1 = mkTPTP (nameFun (spos*2) 1) "plain" b1 [("beta1",[sAN.name $ f])]
                 bt2 = mkTPTP (nameFun ((2*spos)+1) 1) "plain" b2 [("beta2",[sAN.name $ f])]
-                t1 = tableau0 pick (2*spos, 1) (fs++[(bt1,v, uniFormVars,S.empty)]) udm' (mkTC bt1)
-                t2 = tableau0 pick (2*spos + 1, 1) (fs++[(bt2,v, uniFormVars,S.empty)]) udm'  (mkTC bt2)
+                t1 = tableau0 pick (2*spos, 1) (fs |> (bt1,v, uniFormVars,S.empty)) udm' (mkTC bt1)
+                t2 = tableau0 pick (2*spos + 1, 1) (fs |> (bt2,v, uniFormVars,S.empty)) udm'  (mkTC bt2)
                 quantDequantTuplesToDelete = map (second fromJust) $ filter (not . isNothing . snd) $ map (\v -> (v, M.lookup v udm) ) $ S.toList uniFormVars
             in
                 t1 <# foldr (flip ($*$)) (tc) quantDequantTuplesToDelete #> t2
@@ -99,7 +101,7 @@ tableau0 pick (spos, dpos) formulas udm tc  =
             let
                 f1 = mkTPTP (nameFun spos $ dpos) "plain" n [("negate",[sAN.name $ f])]
             in
-                tc <|> tableau0 pick (spos,dpos+1) (fs++[(f1,v,uniFormVars,deuniFormVars)]) udm (mkTC f1)
+                tc <|> tableau0 pick (spos,dpos+1) (fs |> (f1,v,uniFormVars,deuniFormVars)) udm (mkTC f1)
     AtomR _     
         -> tableau0 pick (spos, dpos) fs udm tc
     GammaR form var
@@ -110,7 +112,7 @@ tableau0 pick (spos, dpos) formulas udm tc  =
                 rename  = variableRename var (T $ Identity $ Var varName) form
                 next    = mkTPTP (nameFun spos dpos) "plain" rename [("gamma",[oldName])]
             in 
-                tc <|> tableau0 pick (spos, dpos+1) (fs++[(next,varName:v,S.insert var uniFormVars,S.insert varName deuniFormVars),(f,v,uniFormVars,deuniFormVars)]) (M.insertWith (++) var [varName] udm) (mkTC next)
+                tc <|> tableau0 pick (spos, dpos+1) (fs |> (next,varName:v,S.insert var uniFormVars,S.insert varName deuniFormVars) |> (f,v,uniFormVars,deuniFormVars)) (M.insertWith (++) var [varName] udm) (mkTC next)
     DeltaR form var 
         -> 
             let
@@ -120,7 +122,7 @@ tableau0 pick (spos, dpos) formulas udm tc  =
                 rename      = variableRename var skolFun form
                 next        = mkTPTP (nameFun spos dpos) "plain" rename [("delta",[oldName])]
             in
-                tc <|> tableau0 pick (spos, dpos+1) (fs++[(next,v,uniFormVars,deuniFormVars)]) udm (mkTC next)
+                tc <|> tableau0 pick (spos, dpos+1) (fs |> (next,v,uniFormVars,deuniFormVars)) udm (mkTC next)
   --  _   -> tableau0 pick (spos, dpos) fs qs udm t
 
 type Sub5t1tut0r = Map V Term
@@ -255,7 +257,7 @@ isClosedWithWitness x m forms
  
 instance Proofer FOTableau where
   data NSATProof FOTableau = NSAT {fromNSATproofT :: BinTreeS TPTP_Input} deriving Show
-  data Picker FOTableau = Picker {pick :: [FOForm] -> (FOForm, [FOForm])}
+  data Picker FOTableau = Picker {pick :: Queue FOForm -> (FOForm, Queue FOForm)}
   mkProofer (Picker picker) formulas = tableauFO picker formulas
   
   isSAT tableau = not $ fst $ checkFOTableau tableau S.empty M.empty []
