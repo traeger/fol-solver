@@ -88,13 +88,19 @@ tableau0 pick (spos, dpos) formulas udm tc  =
     BetaR b1 b2  
         -> 
             let
-                udm' = foldr (M.update (\x -> Just $ x L.\\ (S.toList deuniFormVars) ) ) udm (S.toList uniFormVars) -- foldr M.delete udm (S.toList uniFormVars)
+                -- | strict version, 
+                -- | dequants introduced from quant (in gamma rules above) variables occure in beta will not be removed from a substituion in beta1 and beta2
+                udm' = foldr M.delete udm (S.toList uniFormVars) 
+                -- | unstrict version,
+                -- | dequant variables (from gamma rules above) occure in beta will not be removed from a substituion in beta1 and beta2
+                -- udm' = foldr (M.update (\x -> Just $ x L.\\ (S.toList deuniFormVars) ) ) udm (S.toList uniFormVars)
+        
                 bt1 = mkTPTP (nameFun (spos*2) 1) "plain" b1 [("beta1",[sAN.name $ f])]
                 bt2 = mkTPTP (nameFun ((2*spos)+1) 1) "plain" b2 [("beta2",[sAN.name $ f])]
                 t1 = tableau0 pick (2*spos, 1) (fs |> (bt1,v, uniFormVars,S.empty)) udm' (mkTC bt1)
                 t2 = tableau0 pick (2*spos + 1, 1) (fs |> (bt2,v, uniFormVars,S.empty)) udm'  (mkTC bt2)
                 quantDequantTuplesToDelete = map (second fromJust) $ filter (not . isNothing . snd) $ map (\v -> (v, M.lookup v udm) ) $ S.toList uniFormVars
-            in
+            in 
                 t1 <# foldr (flip ($*$)) (tc) quantDequantTuplesToDelete #> t2
     DNegate n   
         ->
