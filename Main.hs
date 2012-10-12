@@ -38,6 +38,6 @@ showProof x =
     parsed = parse x                                         -- parse the input
     problem = Pretty.nest 2 $ Pretty.cat $ map pretty parsed -- pretty prints the problem
     proof = pretty $ proofFOT parsed                         -- pretty prints the proof
-  in show $ 
-    (Pretty.text "Problem:") $$ problem $$ Pretty.char ' ' $$
-    (Pretty.text "Result:") $$ proof
+  in show ( (Pretty.text "Problem:") $$ problem $$ Pretty.text "" ) ++
+     show (Pretty.text "Result:" $$ Pretty.text "") ++
+     show ( proof )
