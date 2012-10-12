@@ -20,8 +20,8 @@ import Data.Map (Map)
 import qualified Data.Map as M
 import Data.Maybe (fromJust, fromMaybe, isNothing)
 import Data.List (nub)
-import qualified Folsolver.Data.Queue as Q
-import Folsolver.Data.Queue (Queue(..), peek, (|>))
+import qualified Folsolver.Normalform.FormulaPQueue as Q
+import Folsolver.Normalform.FormulaPQueue (FormPQ(..), peek, (|>))
 
 import qualified Data.List as L ((\\))
 
@@ -33,10 +33,6 @@ import Text.PrettyPrint.HughesPJ as Pretty hiding (($+$))
 
 type FOForm = (TPTP_Input,[V],Set V,Set V)
 
--- | map from the universal quantifier variable to its dequantified variables
-type UniversalDequantMap = Map V [V]
-noUniversal = M.empty
-
 maxNodeLength :: Int
 maxNodeLength = 20
 
@@ -46,16 +42,25 @@ fofformula (x,_,_,_)       = x
 freeVariables :: FOForm -> [V]
 freeVariables (_,v,_,_) = v
 
+-- type of our formal queue.
+instance Q.HasRedFormula FOForm where
+  redFormula = reduction . formula . fofformula
+type FormQueue = FormPQ FOForm
+
+-- | map from the universal quantifier variable to its dequantified variables
+type UniversalDequantMap = Map V [V]
+noUniversal = M.empty
+
 sAN :: AtomicWord -> String
 sAN (AtomicWord s)  = s
 
 simplePickFO 
-    :: Queue FOForm                 -- Aufzulösende Formeln 
-    -> (FOForm, Queue FOForm)
+    :: FormPQ FOForm                 -- Aufzulösende Formeln 
+    -> (FOForm, FormPQ FOForm)
 simplePickFO = peek
 
 tableauFO
-  :: (Queue FOForm -> (FOForm, Queue FOForm))  -- pick function fuer die naechste formula
+  :: (FormQueue -> (FOForm, FormQueue))  -- pick function fuer die naechste formula
   -> [TPTP_Input]  -- noch zu nutztende formulas
   -> FOTableau
 tableauFO pick formulas = inittree $ tableau0 (pick) (1,1) (Q.fromList simple) noUniversal (mkTC $ last formulas)
@@ -66,13 +71,13 @@ tableauFO pick formulas = inittree $ tableau0 (pick) (1,1) (Q.fromList simple) n
         initFormulas xs = map (\x -> (x,[],S.empty,S.empty)) $ filter (isAlphaFormula . formula) xs ++ filter (\x -> (not (isAlphaFormula $ formula  x))) xs
 
 tableau0
-  :: (Queue FOForm -> (FOForm, Queue FOForm))  -- pick function fuer die naechste formula
+  :: (FormQueue -> (FOForm, FormQueue))  -- pick function fuer die naechste formula
   -> (Integer, Integer) -- Verzweigungs Position in the tree (spos), Tiefen Position (dpos) 
-  -> Queue FOForm  -- noch nicht genutzten formulas
+  -> FormQueue  -- noch nicht genutzten formulas
   -> UniversalDequantMap       -- map from the universal quantifier variable to its dequantified variables introduced so far
   -> TC
   -> FOTableau
-tableau0 pick (spos, dpos) QEmpty udm tc        = leaf tc
+tableau0 pick (spos, dpos) Q.PQEmpty udm tc = leaf tc
 tableau0 pick (spos, dpos) formulas udm tc  = 
   let
     nameFun sp dp = "genFunction_"++(show sp)++"_"++(show dp)
@@ -263,7 +268,7 @@ isClosedWithWitness x m forms
  
 instance Proofer FOTableau where
   data NSATProof FOTableau = NSAT {fromNSATproofT :: BinTreeS TPTP_Input} deriving Show
-  data Picker FOTableau = Picker {pick :: Queue FOForm -> (FOForm, Queue FOForm)}
+  data Picker FOTableau = Picker {pick :: FormQueue -> (FOForm, FormQueue)}
   mkProofer (Picker picker) formulas = tableauFO picker formulas
   
   isSAT tableau = not $ fst $ checkFOTableau tableau S.empty M.empty []

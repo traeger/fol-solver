@@ -94,7 +94,7 @@ data RedFormula =
     GammaR { gammaR :: Formula, gVarR :: V } |
     DeltaR { delaR :: Formula, dVarR :: V } |
     DNegate { negate :: Formula } |
-    AtomR { atom :: Formula }
+    AtomR { atom :: Formula } deriving Eq
 
 instance Show RedFormula where
     show (AlphaR a b)   = show (Alpha a b)
